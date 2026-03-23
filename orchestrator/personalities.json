@@ -1,0 +1,84 @@
+{
+  "version": "1.0.0",
+  "description": "Configuración de Personalidades CMX-CORE",
+  "active": "cmx-dangerous",
+  "personalities": {
+    "cmx-professional": {
+      "name": "CMX Professional",
+      "description": "Rigor máximo - Requiere aprobación humana en cada paso",
+      "rigor": 10,
+      "parameters": {
+        "hitl_frequency": "every_step",
+        "auto_continue": false,
+        "require_stack_confirmation": true,
+        "require_security_review": true,
+        "require_error_handling_review": true,
+        "validation_strictness": "strict",
+        "timeout_multiplier": 2.0,
+        "confidence_threshold": 10,
+        "exploration_depth": "ultra_detailed",
+        "auto_fix_on_issue": false,
+        "batch_size": 1,
+        "ask_before_each_batch": true,
+        "verbose_logging": true
+      },
+      "blocking_rules": [
+        "Exploration JSON must have all required fields",
+        "Spec must be approved before design",
+        "Design must be approved before tasks",
+        "Each batch requires manual verification",
+        "No automatic batching"
+      ]
+    },
+    "cmx-standard": {
+      "name": "CMX Standard",
+      "description": "Modo equilibrado - Mejores prácticas asumidas",
+      "rigor": 5,
+      "parameters": {
+        "hitl_frequency": "on_failure",
+        "auto_continue": true,
+        "require_stack_confirmation": false,
+        "require_security_review": true,
+        "require_error_handling_review": false,
+        "validation_strictness": "moderate",
+        "timeout_multiplier": 1.5,
+        "confidence_threshold": 7,
+        "exploration_depth": "detailed",
+        "auto_fix_on_issue": true,
+        "batch_size": 3,
+        "ask_before_each_batch": false,
+        "verbose_logging": true
+      },
+      "blocking_rules": [
+        "High severity issues block continuation",
+        "Medium severity issues trigger warning",
+        "Exploration JSON must be valid"
+      ]
+    },
+    "cmx-dangerous": {
+      "name": "CMX Dangerous",
+      "description": "Autonomía total - Sin interrupciones",
+      "rigor": 2,
+      "parameters": {
+        "hitl_frequency": "never",
+        "auto_continue": true,
+        "require_stack_confirmation": false,
+        "require_security_review": false,
+        "require_error_handling_review": false,
+        "validation_strictness": "minimal",
+        "timeout_multiplier": 1.0,
+        "confidence_threshold": 5,
+        "exploration_depth": "basic",
+        "auto_fix_on_issue": true,
+        "batch_size": 999,
+        "ask_before_each_batch": false,
+        "verbose_logging": false
+      },
+      "blocking_rules": []
+    }
+  },
+  "metadata": {
+    "last_updated": "2026-03-23",
+    "configured_by": "Daniel-L10N"
+  }
+}

@@ -1,8 +1,60 @@
 # Manual de Operaciones Rápido — CMX-CORE
 
 > **Sistema de Control Modular MX**  
-> **Proyecto de ejemplo**: `mi-nueva-app`  
+> **Autor**: Daniel-L10N  
 > **Workspace base**: `/home/cmx/cmx-core`
+
+---
+
+## 🎭 0. Personalidades CMX-CORE
+
+CMX-CORE tiene 3 modos de autonomía. Elige según tu necesidad:
+
+### Selector de Modo
+
+```bash
+cd /home/cmx/cmx-core
+
+# Ver modo actual
+./set-mode.sh
+
+# Cambiar a modo peligroso (Daniel™)
+./set-mode.sh dangerous
+```
+
+### Los 3 Modos
+
+| Modo | Rigor | HITL | Uso |
+|-------|-------|------|-----|
+| 🔒 **Professional** | 10/10 | Cada paso | Proyectos críticos |
+| ⚖️ **Standard** | 5/10 | En errores | Desarrollo diario |
+| ⚡ **Dangerous** | 2/10 | Nunca | ¡Daniel™ se va a fumar! 🚬 |
+
+### Modo DANGEROUS para Daniel™ ☕
+
+**¿Te vas? ¿Quieres que CMX-CORE trabaje solo?**
+
+```bash
+cd /home/cmx/cmx-core
+
+# 1. Activa modo peligroso
+./set-mode.sh dangerous
+
+# 2. Asegúrate de tener la exploración
+# artifacts/exploration/mi-feature.json
+
+# 3. ¡ACTIVAR PILOTO AUTOMÁTICO!
+./full-auto.sh mi-feature
+
+# 4. Levántate, café,回来 y tu proyecto está listo 🎉
+```
+
+El modo dangerous:
+- ❌ No pregunta nada
+- ❌ No se detiene en errores
+- ❌ No requiere aprobación
+- ✅ Encadena TODO: proposer → spec → design → tasks → batches → archiver
+- ✅ Git auto-commit al final
 
 ---
 
@@ -11,199 +63,128 @@
 ### Dónde crear el archivo
 
 ```bash
-# Crear directorio de exploración
 mkdir -p /home/cmx/cmx-core/artifacts/exploration
 ```
 
 ### Estructura mínima del JSON
 
-Crea el archivo en: `artifacts/exploration/mi-nueva-app.json`
+Crea: `artifacts/exploration/mi-feature.json`
 
 ```json
 {
   "type": "exploration_input",
   "version": "1.0.0",
-  "change": "mi-nueva-app",
-  "description": "Descripción breve de la feature que quieres construir",
+  "change": "mi-feature",
+  "description": "Descripción de lo que quieres construir",
   "workspace": "/home/cmx/cmx-core",
   "constraints": {
     "language": "typescript",
-    "framework": "nextjs",
-    "styling": "tailwind"
+    "framework": "nextjs"
   }
 }
 ```
 
-### Ejecutar Explorer
-
-```bash
-cd /home/cmx/cmx-core
-./agents/explorer.sh /home/cmx/cmx-core mi-nueva-app
-```
-
 ---
 
-## 2. Fase de Arquitectura: Orden de Comandos
+## 2. Fase de Arquitectura
 
-### Secuencia lineal (necesario completar uno antes del siguiente)
-
-```bash
-# 1. PROPOSER — Genera propuesta formal
-./agents/proposer.sh mi-nueva-app
-
-# 🔄 Se puede paralelizar con spec y design después de proposer
-# (Ver abajo)
-
-# 2. SPEC-WRITER — Genera especificación técnica
-./agents/spec-writer.sh mi-nueva-app
-
-# 3. DESIGNER — Genera diseño UI/UX  
-./agents/designer.sh mi-nueva-app
-
-# 4. TASK-PLANNER — Genera plan de tareas
-./agents/task-planner.sh mi-nueva-app
-```
-
-### Paralelización opcional (después de proposer)
+### Opción A: Manual (Standard/Professional)
 
 ```bash
-# Estos dos pueden ejecutarse EN PARALELO después de proposer:
-./agents/spec-writer.sh mi-nueva-app &
-./agents/designer.sh mi-nueva-app &
-
-# Waiting...
+./agents/proposer.sh mi-feature
+./agents/spec-writer.sh mi-feature &
+./agents/designer.sh mi-feature &
 wait
+./agents/task-planner.sh mi-feature
+```
+
+### Opción B: Automático (Dangerous)
+
+```bash
+./full-auto.sh mi-feature
 ```
 
 ---
 
-## 3. Fase de Fabricación: Ciclo de Batches
+## 3. Fase de Fabricación: Batches
 
-### Estructura del ciclo
-
-Cada batch = `implementer.sh` + `verifier.sh` + **HITL approval**
-
-### Comando fresco del ciclo
+### Ciclo manual
 
 ```bash
-# --- BATCH 1: Setup Inicial ---
-./agents/implementer.sh mi-nueva-app 1
-./agents/verifier.sh mi-nueva-app 1
-# 🛑 HITL: Revisar artifacts/verification/mi-nueva-app_batch_1.json
-
-# --- BATCH 2: Funcionalidad Core ---
-./agents/implementer.sh mi-nueva-app 2  
-./agents/verifier.sh mi-nueva-app 2
-# 🛑 HITL: Revisar artifacts/verification/mi-nueva-app_batch_2.json
-
-# --- BATCH 3: Tests y Polish ---
-./agents/implementer.sh mi-nueva-app 3
-./agents/verifier.sh mi-nueva-app 3
-# 🛑 HITL: Revisar artifacts/verification/mi-nueva-app_batch_3.json
+# Batch N
+./agents/implementer.sh mi-feature N
+./agents/verifier.sh mi-feature N
 ```
 
-### La Puerta de Aprobación (HITL)
-
-**Cuándo el verificador FALLA** → Debes intervenir manualmente:
-
-| Condición | Acción Required |
-|-----------|-----------------|
-| `passed: false` | Revisar `issues_found[]` en el JSON de verificación |
-| `confidence < 8` | Revisar código manualmente |
-| `severity: high/medium` en issues | **Corregir los problemas antes de continuar** |
-
-### Si el verificador falla
+### Si falla el verificador
 
 ```bash
-# 1. Ver qué falló
-cat /home/cmx/cmx-core/artifacts/verification/mi-nueva-app_batch_N.json | jq
+# Ver qué falló
+cat artifacts/verification/mi-feature_batch_N.json | jq
 
-# 2. Si hay issues HIGH/MEDIUM:
-#    - Leer los archivos problemáticos
-#    - Corregir manualmente o delegar a implementer con el mismo batch
-
-# 3. Re-ejecutar implementación (mismo batch)
-./agents/implementer.sh mi-nueva-app N
-
-# 4. Volver a verificar
-./agents/verifier.sh mi-nueva-app N
+# Corregir archivos
+# Re-ejecutar
+./agents/implementer.sh mi-feature N
+./agents/verifier.sh mi-feature N
 ```
 
 ---
 
-## 4. Monitoreo y Cierre
-
-### Monitoreo en tiempo real
+## 4. Monitoreo
 
 ```bash
-# Ver estado actual (una vez)
+# Estado actual
 ./orchestrator/monitor.sh --once
 
-# Monitoreo continuo (refresca cada 2s)
+# Monitoreo continuo
 ./orchestrator/monitor.sh
-```
 
-### Indicadores visuales en monitor
-
-| Status | Significado |
-|--------|-------------|
-| 🔄 RUNNING | Agente ejecutándose |
-| ✅ DONE | Completado exitosamente |
-| ❌ FAILED | Falló |
-| ⏸ PENDING | No iniciado |
-| 🚨 (rojo) | HITL requerido |
-
-### Finalizar y archivar
-
-```bash
-# Cuando TODOS los batches pasaron
-./agents/archiver.sh mi-nueva-app
-```
-
-Esto mueve todos los artifacts a `artifacts/archive/mi-nueva-app_TIMESTAMP/`
-
----
-
-## Quick Reference — Comandos en una línea
-
-```bash
-# Fase 1: Exploración
-cd /home/cmx/cmx-core
-./agents/explorer.sh mi-nueva-app
-
-# Fase 2: Arquitectura (lineal)
-./agents/proposer.sh mi-nueva-app
-./agents/spec-writer.sh mi-nueva-app  
-./agents/designer.sh mi-nueva-app
-./agents/task-planner.sh mi-nueva-app
-
-# Fase 3: Fabricación (repetir N batches)
-./agents/implementer.sh mi-nueva-app N
-./agents/verifier.sh mi-nueva-app N
-# [HITL: revisar manualmente]
-# Repetir para siguiente batch
-
-# Cierre
-./agents/archiver.sh mi-nueva-app
+# Parar todo
+./orchestrator/stop-all.sh
 ```
 
 ---
 
-## Ubicaciones clave
+## 5. Cierre
 
-| Artefacto | Ruta |
-|-----------|------|
-| Exploración | `artifacts/exploration/{change}.{json,md}` |
+```bash
+./agents/archiver.sh mi-feature
+```
+
+---
+
+## 📁 Estructura de Archivos
+
+| Tipo | Ruta |
+|------|------|
+| Exploración | `artifacts/exploration/{change}.json` |
 | Propuesta | `artifacts/proposals/{change}.json` |
 | Spec | `artifacts/specs/{change}.json` |
-| Diseño | `artifacts/designs/{change}.json` |
-| Tareas | `artifacts/tasks/{change}.json` |
+| Tasks | `artifacts/tasks/{change}.json` |
 | Implementación | `artifacts/implementation/{change}_batch_{N}.json` |
 | Verificación | `artifacts/verification/{change}_batch_{N}.json` |
-| Estado actual | `orchestrator/agent_state.json` |
-| Logs activos | `orchestrator/logs/active/` |
 | Archive | `artifacts/archive/{change}_{timestamp}/` |
+| Modos | `orchestrator/personalities.json` |
 
 ---
 
-*Generated: CMX-CORE v2 — Sistema de Control Modular MX*
+## 🚀 Quick Start Daniel™
+
+```bash
+cd /home/cmx/cmx-core
+
+# 1. Crear idea
+echo '{"change":"mi-app","description":"mi app"}' > artifacts/exploration/mi-app.json
+
+# 2. Modo peligroso
+./set-mode.sh dangerous
+
+# 3. ¡A trabajar! 
+./full-auto.sh mi-app
+
+# 4. ☕ Café + Cigarro + Volver con proyecto listo
+```
+
+---
+
+*CMX-CORE v2 — Control Modular MX*

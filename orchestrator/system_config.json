@@ -1,0 +1,8 @@
+{
+  "active_personality": "dangerous",
+  "preferences": {
+    "professional": { "strictness": 10, "hitl_required": true },
+    "standard": { "strictness": 5, "hitl_required": true },
+    "dangerous": { "strictness": 2, "hitl_required": false }
+  }
+}
