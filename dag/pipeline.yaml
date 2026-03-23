@@ -1,0 +1,336 @@
+# SDD Pipeline DAG — Ejecutable
+# Versión: 1.0.0
+
+meta:
+  version: "1.0.0"
+  created: "2026-03-21"
+  project: "cognitive-stack"
+  workspace: "/home/cmx/cognitive-stack"
+
+phases:
+
+  init:
+    id: init
+    name: "Initialize"
+    description: "Bootstrap project context and detect stack"
+    agent: sdd-init
+    script: null
+    output:
+      artifacts:
+        - type: context
+          file: "artifacts/context.json"
+    execution:
+      mode: manual
+      requires_approval: false
+    dependencies: []
+
+  explore:
+    id: explore
+    name: "Explore"
+    description: "Investigate codebase and analyze requirements"
+    agent: sdd-explore
+    script: "agents/explorer.sh"
+    input:
+      - name: TOPIC
+        type: param
+        required: true
+      - name: CHANGE_NAME
+        type: param
+        required: true
+    output:
+      artifacts:
+        - file: "artifacts/exploration/{CHANGE_NAME}.md"
+          schema: "schemas/explore.schema.json"
+          type: file
+    execution:
+      mode: parallel_allowed
+      requires_approval: false
+      timeout_minutes: 30
+    dependencies:
+      - phase: init
+
+  propose:
+    id: propose
+    name: "Propose"
+    description: "Create change proposal with approach and risks"
+    agent: sdd-propose
+    script: "agents/proposer.sh"
+    input:
+      - name: CHANGE_NAME
+        type: param
+        required: true
+      - name: EXPLORATION
+        type: artifact
+        from_phase: explore
+        required: true
+        file: "artifacts/exploration/{CHANGE_NAME}.md"
+    output:
+      artifacts:
+        - file: "artifacts/proposals/{CHANGE_NAME}.md"
+          schema: "schemas/proposal.schema.json"
+          type: file
+        - file: "artifacts/proposals/{CHANGE_NAME}.contract.json"
+          type: contract
+    execution:
+      mode: sequential
+      requires_approval: true
+      approval_gate: proposal_approved
+      timeout_minutes: 45
+    dependencies:
+      - phase: explore
+
+  spec:
+    id: spec
+    name: "Spec"
+    description: "Write detailed specifications"
+    agent: sdd-spec
+    script: "agents/spec-writer.sh"
+    parallel_with:
+      - design
+    input:
+      - name: CHANGE_NAME
+        type: param
+        required: true
+      - name: PROPOSAL
+        type: artifact
+        from_phase: propose
+        required: true
+        file: "artifacts/proposals/{CHANGE_NAME}.md"
+    output:
+      artifacts:
+        - file: "artifacts/specs/{CHANGE_NAME}.md"
+          schema: "schemas/spec.schema.json"
+          type: file
+        - file: "artifacts/specs/{CHANGE_NAME}.scenarios.json"
+          schema: "schemas/scenarios.schema.json"
+          type: file
+    execution:
+      mode: parallel
+      requires_approval: true
+      approval_gate: spec_approved
+      timeout_minutes: 60
+    dependencies:
+      - phase: propose
+        condition: contract_valid
+
+  design:
+    id: design
+    name: "Design"
+    description: "Create technical design"
+    agent: sdd-design
+    script: "agents/designer.sh"
+    parallel_with:
+      - spec
+    input:
+      - name: CHANGE_NAME
+        type: param
+        required: true
+      - name: PROPOSAL
+        type: artifact
+        from_phase: propose
+        required: true
+        file: "artifacts/proposals/{CHANGE_NAME}.md"
+    output:
+      artifacts:
+        - file: "artifacts/designs/{CHANGE_NAME}.md"
+          schema: "schemas/design.schema.json"
+          type: file
+    execution:
+      mode: parallel
+      requires_approval: true
+      approval_gate: design_approved
+      timeout_minutes: 60
+    dependencies:
+      - phase: propose
+        condition: contract_valid
+
+  tasks:
+    id: tasks
+    name: "Task Planning"
+    description: "Break down into tasks"
+    agent: sdd-tasks
+    script: "agents/task-planner.sh"
+    input:
+      - name: CHANGE_NAME
+        type: param
+        required: true
+      - name: SPEC
+        type: artifact
+        from_phase: spec
+        required: true
+        file: "artifacts/specs/{CHANGE_NAME}.md"
+      - name: DESIGN
+        type: artifact
+        from_phase: design
+        required: true
+        file: "artifacts/designs/{CHANGE_NAME}.md"
+    output:
+      artifacts:
+        - file: "artifacts/tasks/{CHANGE_NAME}.md"
+          schema: "schemas/tasks.schema.json"
+          type: file
+    execution:
+      mode: sequential
+      requires_approval: true
+      approval_gate: tasks_approved
+      timeout_minutes: 30
+    dependencies:
+      - phase: spec
+      - phase: design
+
+  apply:
+    id: apply
+    name: "Implement"
+    description: "Implement code changes"
+    agent: sdd-apply
+    script: "agents/implementer.sh"
+    input:
+      - name: CHANGE_NAME
+        type: param
+        required: true
+      - name: BATCH
+        type: param
+        required: false
+        default: "1"
+      - name: TASKS
+        type: artifact
+        from_phase: tasks
+        required: true
+        file: "artifacts/tasks/{CHANGE_NAME}.md"
+    output:
+      artifacts:
+        - file: "artifacts/implementation/{CHANGE_NAME}-batch-{BATCH}.md"
+          schema: "schemas/apply.schema.json"
+          type: file
+        - file: "artifacts/progress/{CHANGE_NAME}.json"
+          schema: "schemas/progress.schema.json"
+          type: file
+    execution:
+      mode: sequential
+      requires_approval: true
+      approval_gate: batch_approved
+      timeout_minutes: 120
+    dependencies:
+      - phase: tasks
+
+  verify:
+    id: verify
+    name: "Verify"
+    description: "Validate implementation"
+    agent: sdd-verify
+    script: "agents/verifier.sh"
+    input:
+      - name: CHANGE_NAME
+        type: param
+        required: true
+      - name: SPEC
+        type: artifact
+        from_phase: spec
+        required: true
+        file: "artifacts/specs/{CHANGE_NAME}.md"
+      - name: TASKS
+        type: artifact
+        from_phase: tasks
+        required: true
+        file: "artifacts/tasks/{CHANGE_NAME}.md"
+      - name: PROGRESS
+        type: artifact
+        from_phase: apply
+        required: true
+        file: "artifacts/progress/{CHANGE_NAME}.json"
+    output:
+      artifacts:
+        - file: "artifacts/verification/{CHANGE_NAME}.md"
+          schema: "schemas/verify.schema.json"
+          type: file
+        - file: "artifacts/verification/{CHANGE_NAME}.report.json"
+          schema: "schemas/verify-report.schema.json"
+          type: file
+    execution:
+      mode: sequential
+      requires_approval: false
+      timeout_minutes: 45
+    dependencies:
+      - phase: apply
+
+  archive:
+    id: archive
+    name: "Archive"
+    description: "Close change"
+    agent: sdd-archive
+    script: "agents/archiver.sh"
+    input:
+      - name: CHANGE_NAME
+        type: param
+        required: true
+      - name: VERIFICATION
+        type: artifact
+        from_phase: verify
+        required: true
+        file: "artifacts/verification/{CHANGE_NAME}.report.json"
+    output:
+      artifacts:
+        - file: "artifacts/archive/{CHANGE_NAME}-{DATE}.md"
+          schema: "schemas/archive.schema.json"
+          type: file
+    execution:
+      mode: sequential
+      requires_approval: true
+      approval_gate: archive_approved
+      timeout_minutes: 15
+    dependencies:
+      - phase: verify
+        condition: verification_passed
+
+pipeline:
+  name: "SDD Main Pipeline"
+  flow:
+    - explore
+    - propose
+    - parallel:
+        - spec
+        - design
+    - tasks
+    - apply
+    - verify
+    - archive
+
+conditions:
+  contract_valid:
+    check: validate_contract
+  verification_passed:
+    check: verification_passed
+    min_score: 80
+
+approval_gates:
+  proposal_approved:
+    required_fields:
+      - name
+      - approach
+      - risks
+      - rollback_plan
+    min_fields: 3
+  spec_approved:
+    required_fields:
+      - scenarios
+      - acceptance_criteria
+    min_fields: 2
+  design_approved:
+    required_fields:
+      - architecture
+      - data_model
+    min_fields: 2
+  tasks_approved:
+    required_fields:
+      - phases
+      - task_count
+    min_fields: 2
+  batch_approved:
+    required_fields:
+      - files_changed
+    min_fields: 1
+  archive_approved:
+    required_fields:
+      - verification_summary
+      - artifacts_count
+    min_fields: 2

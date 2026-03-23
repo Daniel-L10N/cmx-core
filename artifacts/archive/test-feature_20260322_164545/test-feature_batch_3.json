@@ -1,0 +1,11 @@
+{
+  "batch_verified": 3,
+  "files_checked": [
+    "src/stores/authStore.ts",
+    "src/hooks/useAuth.ts",
+    "src/types/auth.ts"
+  ],
+  "passed": true,
+  "issues_found": [],
+  "confidence_score": 10
+}

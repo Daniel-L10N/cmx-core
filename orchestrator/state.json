@@ -1,0 +1,12 @@
+{
+  "pipeline": "SDD",
+  "version": "1.0.0",
+  "current_phase": "explore",
+  "change_name": "inventario-stock",
+  "approved_gates": {},
+  "artifacts": {},
+  "started_at": "2026-03-21T19:44:22-06:00",
+  "phases_completed": [
+    "explore"
+  ]
+}

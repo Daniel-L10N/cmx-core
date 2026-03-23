@@ -1,0 +1,26 @@
+{
+  "batch_verified": 1,
+  "files_checked": [".env.example", "src/types/auth.ts", "src/lib/jwt.ts"],
+  "passed": true,
+  "issues_found": [
+    {
+      "file": "src/lib/jwt.ts",
+      "issue": "decodeJWT() parses JWT payload without cryptographic signature verification. A malicious actor could forge a token with arbitrary claims (sub, email) and bypass authentication checks if decodeJWT output is trusted without backend verification.",
+      "severity": "medium",
+      "fix_suggestion": "Add a comment warning that decodeJWT() should ONLY be used for logging/debugging, never for authentication decisions. All auth decisions must use server-side JWT verification with the secret key."
+    },
+    {
+      "file": "src/lib/jwt.ts",
+      "issue": "console.error() at line 253 logs the full error object during token refresh failure, which could expose sensitive information (tokens, user data) if the error contains such details.",
+      "severity": "low",
+      "fix_suggestion": "Replace console.error with a sanitized log: console.error('Token refresh failed:', error instanceof Error ? error.message : 'Unknown error')"
+    },
+    {
+      "file": "src/lib/jwt.ts",
+      "issue": "refreshAccessToken() returns data.accessToken from response body (line 247), but the spec states tokens are managed via HTTP-only cookies. If the backend also sets the new access token as a cookie, the frontend doesn't need to parse it from the body.",
+      "severity": "low",
+      "fix_suggestion": "Verify backend behavior: if backend sets new access token cookie automatically, remove the setAccessToken() call and body parsing. If backend returns token in body, the current approach is correct."
+    }
+  ],
+  "confidence_score": 9
+}

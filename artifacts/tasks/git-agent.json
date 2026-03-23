@@ -1,0 +1,271 @@
+{
+  "title": "CMX-Git-Manager - Plan de Implementación",
+  "version": "1.0.0",
+  "total_estimated_hours": 6,
+  "phases": [
+    {
+      "name": "Infraestructura y Configuración",
+      "description": "Configuración base del script, variables de entorno, y validación de herramientas",
+      "order": 1,
+      "tasks": [
+        {
+          "id": "GM-TASK-001",
+          "title": "Crear script base git-manager.sh",
+          "description": "Crear agents/git-manager.sh con estructura CLI, colores, logging, y parsing de argumentos",
+          "type": "infrastructure",
+          "priority": "high",
+          "estimated_minutes": 30,
+          "dependencies": [],
+          "files_to_create": ["agents/git-manager.sh"],
+          "files_to_modify": [],
+          "verification": {
+            "test_command": "chmod +x agents/git-manager.sh && ./agents/git-manager.sh --help",
+            "manual_check": "Verificar que --help muestra todas las funciones disponibles",
+            "acceptance_criteria": ["Script ejecutable", "Help muestra funciones"]
+          }
+        },
+        {
+          "id": "GM-TASK-002",
+          "title": "Implementar validación de GITHUB_TOKEN",
+          "description": "Función para validar existencia de GITHUB_TOKEN y mostrar instrucciones si no está configurado",
+          "type": "security",
+          "priority": "high",
+          "estimated_minutes": 15,
+          "dependencies": ["GM-TASK-001"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/git-manager.sh"],
+          "verification": {
+            "test_command": "unset GITHUB_TOKEN && ./agents/git-manager.sh status",
+            "manual_check": "Verificar mensaje de error claro",
+            "acceptance_criteria": ["Token validado al inicio", "Error claro si no existe"]
+          }
+        },
+        {
+          "id": "GM-TASK-003",
+          "title": "Implementar función init",
+          "description": "Detectar repositorio existente, inicializar si no existe, configurar remote",
+          "type": "core",
+          "priority": "high",
+          "estimated_minutes": 20,
+          "dependencies": ["GM-TASK-001"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/git-manager.sh"],
+          "verification": {
+            "test_command": "./agents/git-manager.sh init",
+            "manual_check": "Verificar detección de .git existente",
+            "acceptance_criteria": ["Detecta repo existente", "Muestra branch actual"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Operaciones Básicas de Git",
+      "description": "Implementar funciones core: status, add, commit, push",
+      "order": 2,
+      "tasks": [
+        {
+          "id": "GM-TASK-004",
+          "title": "Implementar función status",
+          "description": "Mostrar estado del repositorio: branch, archivos staged/modified/untracked",
+          "type": "core",
+          "priority": "high",
+          "estimated_minutes": 15,
+          "dependencies": ["GM-TASK-003"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/git-manager.sh"],
+          "verification": {
+            "test_command": "./agents/git-manager.sh status",
+            "manual_check": "Verificar output formateado",
+            "acceptance_criteria": ["Muestra branch, staged, modified, untracked"]
+          }
+        },
+        {
+          "id": "GM-TASK-005",
+          "title": "Implementar función add",
+          "description": "Añadir archivos al staging area con soporte para patrones glob",
+          "type": "core",
+          "priority": "high",
+          "estimated_minutes": 15,
+          "dependencies": ["GM-TASK-004"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/git-manager.sh"],
+          "verification": {
+            "test_command": "./agents/git-manager.sh add '*.ts'",
+            "manual_check": "Verificar archivos añadidos",
+            "acceptance_criteria": ["Añade archivos al staging", "Muestra count"]
+          }
+        },
+        {
+          "id": "GM-TASK-006",
+          "title": "Implementar mensajes de commit inteligentes",
+          "description": "Analizar diff y generar mensajes con Conventional Commits (feat:, fix:, docs:, etc.)",
+          "type": "core",
+          "priority": "high",
+          "estimated_minutes": 45,
+          "dependencies": ["GM-TASK-005"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/git-manager.sh"],
+          "verification": {
+            "test_command": "./agents/git-manager.sh commit",
+            "manual_check": "Verificar formato Conventional Commits",
+            "acceptance_criteria": ["Formato: type: description", "Tipo detectado por archivos"]
+          }
+        },
+        {
+          "id": "GM-TASK-007",
+          "title": "Implementar función push con validación HTTPS",
+          "description": "Subir commits al remote, validar que usa HTTPS, no SSH",
+          "type": "core",
+          "priority": "high",
+          "estimated_minutes": 20,
+          "dependencies": ["GM-TASK-006"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/git-manager.sh"],
+          "verification": {
+            "test_command": "./agents/git-manager.sh push",
+            "manual_check": "Verificar remote URL es HTTPS",
+            "acceptance_criteria": ["Solo permite HTTPS", "Rechaza SSH"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gestión de Ramas y Pull Requests",
+      "description": "Implementar branch, merge, pr commands",
+      "order": 3,
+      "tasks": [
+        {
+          "id": "GM-TASK-008",
+          "title": "Implementar función branch",
+          "description": "Crear y gestionar ramas feature/*, checkout entre ramas",
+          "type": "feature",
+          "priority": "medium",
+          "estimated_minutes": 20,
+          "dependencies": ["GM-TASK-007"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/git-manager.sh"],
+          "verification": {
+            "test_command": "./agents/git-manager.sh branch feature/test",
+            "manual_check": "Verificar rama creada y activa",
+            "acceptance_criteria": ["Crea rama feature/*", "Cambia a nueva rama"]
+          }
+        },
+        {
+          "id": "GM-TASK-009",
+          "title": "Implementar función pr con gh CLI",
+          "description": "Crear Pull Request automatizado usando GitHub CLI",
+          "type": "feature",
+          "priority": "medium",
+          "estimated_minutes": 30,
+          "dependencies": ["GM-TASK-008"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/git-manager.sh"],
+          "verification": {
+            "test_command": "./agents/git-manager.sh pr 'feat: new feature'",
+            "manual_check": "Verificar PR creado con gh cli",
+            "acceptance_criteria": ["PR creado via gh", "Retorna URL del PR"]
+          }
+        },
+        {
+          "id": "GM-TASK-010",
+          "title": "Implementar función merge",
+          "description": "Fusionar rama source hacia target",
+          "type": "feature",
+          "priority": "low",
+          "estimated_minutes": 15,
+          "dependencies": ["GM-TASK-009"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/git-manager.sh"],
+          "verification": {
+            "test_command": "./agents/git-manager.sh merge feature/test main",
+            "manual_check": "Verificar merge exitoso",
+            "acceptance_criteria": ["Ramas fusionadas correctamente"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Integración y Cierre",
+      "description": "Implementar sync, tag, integración con archiver.sh",
+      "order": 4,
+      "tasks": [
+        {
+          "id": "GM-TASK-011",
+          "title": "Implementar función sync",
+          "description": "Descargar cambios del remote y rebasar si es necesario",
+          "type": "feature",
+          "priority": "medium",
+          "estimated_minutes": 15,
+          "dependencies": ["GM-TASK-010"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/git-manager.sh"],
+          "verification": {
+            "test_command": "./agents/git-manager.sh sync",
+            "manual_check": "Verificar fetch + rebase",
+            "acceptance_criteria": ["Commits remotos incorporados"]
+          }
+        },
+        {
+          "id": "GM-TASK-012",
+          "title": "Implementar función tag para releases",
+          "description": "Crear tags semánticos annotated (vX.Y.Z) para cerrar cambios",
+          "type": "release",
+          "priority": "high",
+          "estimated_minutes": 15,
+          "dependencies": ["GM-TASK-011"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/git-manager.sh"],
+          "verification": {
+            "test_command": "./agents/git-manager.sh tag v1.0.0",
+            "manual_check": "Verificar tag created",
+            "acceptance_criteria": ["Tag annotated creado", "Mensaje de release"]
+          }
+        },
+        {
+          "id": "GM-TASK-013",
+          "title": "Integrar con archiver.sh",
+          "description": "Modificar archiver.sh para llamar git push + git tag + git push --tags al cerrar cambio",
+          "type": "integration",
+          "priority": "high",
+          "estimated_minutes": 30,
+          "dependencies": ["GM-TASK-012"],
+          "files_to_create": [],
+          "files_to_modify": ["agents/archiver.sh"],
+          "verification": {
+            "test_command": "./agents/archiver.sh test-change",
+            "manual_check": "Verificar Final Push y tagging",
+            "acceptance_criteria": ["Push ejecut post archive", "Tag creado y pusheado"]
+          }
+        }
+      ]
+    }
+  ],
+  "batch_recommendations": [
+    {
+      "batch": 1,
+      "tasks": ["GM-TASK-001", "GM-TASK-002", "GM-TASK-003"],
+      "description": "Setup: Script base + validación de credenciales + init"
+    },
+    {
+      "batch": 2,
+      "tasks": ["GM-TASK-004", "GM-TASK-005", "GM-TASK-006", "GM-TASK-007"],
+      "description": "Core Git: status, add, commit inteligente, push"
+    },
+    {
+      "batch": 3,
+      "tasks": ["GM-TASK-008", "GM-TASK-009", "GM-TASK-010", "GM-TASK-011", "GM-TASK-012"],
+      "description": "Features: branch, pr, merge, sync, tag"
+    },
+    {
+      "batch": 4,
+      "tasks": ["GM-TASK-013"],
+      "description": "Integración con archiver.sh"
+    }
+  ],
+  "security_requirements": {
+    "github_token": "Variable de entorno GITHUB_TOKEN (requerida)",
+    "token_masking": "Logs muestran solo últimos 4 caracteres",
+    "remote_validation": "Solo HTTPS, rechaza SSH"
+  },
+  "confidence_score": 9
+}

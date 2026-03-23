@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cmx-core.dev/schemas/verify.schema.json",
+  "title": "SDD Verification Report",
+  "description": "Contrato de salida para fase de verificación",
+  "type": "object",
+  "required": ["overall_status", "scenarios_tested", "issues"],
+  "additionalProperties": true,
+  "properties": {
+    "overall_status": {
+      "type": "string",
+      "enum": ["passed", "failed", "partial"],
+      "description": "Estado general de la verificación"
+    },
+    "score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Puntuación de cumplimiento (0-100)"
+    },
+    "scenarios_tested": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["scenario_id", "result", "description"],
+        "properties": {
+          "scenario_id": { "type": "string" },
+          "description": { "type": "string" },
+          "result": { "type": "string", "enum": ["pass", "fail", "skip"] },
+          "evidence": { "type": "string" },
+          "execution_time_ms": { "type": "integer" }
+        }
+      }
+    },
+    "acceptance_criteria_status": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["criteria_id", "status"],
+        "properties": {
+          "criteria_id": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["met", "partially_met", "not_met", "not_tested"] },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "description"],
+        "properties": {
+          "severity": { "type": "string", "enum": ["critical", "major", "minor", "info"] },
+          "category": { "type": "string", "enum": ["functional", "performance", "security", "usability", "code_quality"] },
+          "description": { "type": "string" },
+          "location": { "type": "string" },
+          "suggestion": { "type": "string" }
+        }
+      }
+    },
+    "test_results": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer" },
+        "passed": { "type": "integer" },
+        "failed": { "type": "integer" },
+        "skipped": { "type": "integer" },
+        "coverage_percent": { "type": "number" }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "can_proceed": {
+      "type": "boolean",
+      "description": "Si true, se puede proceder a archive"
+    },
+    "blocking_issues": {
+      "type": "integer",
+      "description": "Número de issues críticos/major que bloquean"
+    }
+  }
+}

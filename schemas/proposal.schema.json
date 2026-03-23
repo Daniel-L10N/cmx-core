@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cmx-core.dev/schemas/proposal.schema.json",
+  "title": "SDD Proposal",
+  "description": "Contrato de salida para fase de propuesta",
+  "type": "object",
+  "required": ["name", "approach", "risks", "rollback_plan", "scope", "estimated_effort"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 100,
+      "description": "Nombre del cambio"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 500,
+      "description": "Resumen ejecutivo"
+    },
+    "approach": {
+      "type": "string",
+      "minLength": 50,
+      "description": "Enfoque técnico detallado"
+    },
+    "scope": {
+      "type": "object",
+      "required": ["in_scope", "out_of_scope"],
+      "properties": {
+        "in_scope": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "out_of_scope": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description", "severity", "mitigation"],
+        "properties": {
+          "description": { "type": "string" },
+          "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "mitigation": { "type": "string" }
+        }
+      }
+    },
+    "rollback_plan": {
+      "type": "string",
+      "minLength": 20,
+      "description": "Plan de rollback"
+    },
+    "estimated_effort": {
+      "type": "object",
+      "required": ["hours", "phases"],
+      "properties": {
+        "hours": { "type": "number", "minimum": 1 },
+        "phases": { "type": "number", "minimum": 1 },
+        "note": { "type": "string" }
+      }
+    },
+    "alternatives_considered": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "reason_rejected": { "type": "string" }
+        }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "ready_for_review", "approved", "rejected"],
+      "default": "draft"
+    }
+  }
+}

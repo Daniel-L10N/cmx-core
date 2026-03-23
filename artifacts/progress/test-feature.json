@@ -1,0 +1,20 @@
+{
+  "change": "test-feature",
+  "current_batch": 6,
+  "batch_results": {
+    "6": {
+      "batch_executed": 6,
+      "tasks_completed": [
+        "TASK-020",
+        "TASK-021",
+        "TASK-022"
+      ],
+      "files_created_or_modified": [
+        "docs/api/auth.md"
+      ],
+      "issues_found": null,
+      "confidence_score": 9
+    }
+  },
+  "timestamp": "2026-03-22T16:43:20-06:00"
+}

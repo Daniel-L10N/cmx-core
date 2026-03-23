@@ -1,0 +1,72 @@
+{
+  "title": "CMX-Git-Manager Design",
+  "version": "1.0.0",
+  "change": "git-agent",
+  "summary": "Diseño del agente de automatización Git con estructura de funciones modulares en Bash",
+  "architecture": {
+    "script_name": "agents/git-manager.sh",
+    "type": "Bash CLI Script",
+    "functions": [
+      {
+        "name": "init",
+        "description": "Inicializa/configura repositorio Git",
+        "subcommands": ["git init", "git remote add origin <url>"]
+      },
+      {
+        "name": "status",
+        "description": "Muestra estado del repositorio",
+        "subcommands": ["git status --short", "git branch"]
+      },
+      {
+        "name": "add",
+        "description": "Añade archivos al staging",
+        "subcommands": ["git add <pattern>"]
+      },
+      {
+        "name": "commit",
+        "description": "Genera commit con mensaje inteligente",
+        "subcommands": ["git diff --name-only", "git commit -m '<message>'"]
+      },
+      {
+        "name": "push",
+        "description": "Sube cambios al remote",
+        "subcommands": ["git push -u origin <branch>"]
+      },
+      {
+        "name": "branch",
+        "description": "Gestión de ramas feature/*",
+        "subcommands": ["git checkout -b", "git branch"]
+      },
+      {
+        "name": "pr",
+        "description": "Crea Pull Request via gh CLI",
+        "subcommands": ["gh pr create"]
+      },
+      {
+        "name": "tag",
+        "description": "Crea tag semántico",
+        "subcommands": ["git tag -a vX.Y.Z -m '<message>'"]
+      },
+      {
+        "name": "merge",
+        "description": "Fusiona ramas",
+        "subcommands": ["git checkout", "git merge"]
+      },
+      {
+        "name": "sync",
+        "description": "Descarga y rebasa cambios remotos",
+        "subcommands": ["git fetch origin", "git rebase"]
+      }
+    ]
+  },
+  "integration": {
+    "archiver_hook": "Llamar git push + git tag + git push --tags al finalizar",
+    "verifier_hook": "Opcional: git add + git commit + git push tras verificación exitosa"
+  },
+  "security_model": {
+    "token_handling": "GITHUB_TOKEN desde variable de entorno",
+    "token_masking": "Mostrar solo últimos 4 caracteres en logs",
+    "remote_validation": "Verificar HTTPS antes de push"
+  },
+  "confidence_score": 9
+}

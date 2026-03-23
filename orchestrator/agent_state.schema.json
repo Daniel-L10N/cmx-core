@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cmx-core.dev/schemas/agent-state.schema.json",
+  "title": "SDD Agent State",
+  "description": "Estado compartido de todos los agentes en el pipeline SDD-v2",
+  "type": "object",
+  "required": ["pipeline", "version", "change_name", "agents", "started_at"],
+  "properties": {
+    "pipeline": {
+      "type": "string",
+      "const": "SDD-v2",
+      "description": "Versión del pipeline"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "change_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "agents": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/agent_status"
+      },
+      "minProperties": 1
+    }
+  },
+  "definitions": {
+    "agent_status": {
+      "type": "object",
+      "required": ["status", "started_at", "confidence_score"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "completed", "failed", "timeout", "cancelled"],
+          "description": "Estado actual del agente"
+        },
+        "pid": {
+          "type": ["integer", "null"],
+          "description": "Process ID del sub-proceso"
+        },
+        "confidence_score": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Nivel de confianza del output (1-10)"
+        },
+        "started_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "completed_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "output_file": {
+          "type": ["string", "null"],
+          "description": "Ruta al artifact generado"
+        },
+        "error": {
+          "type": ["string", "null"],
+          "description": "Mensaje de error si falló"
+        },
+        "requires_hitl": {
+          "type": "boolean",
+          "description": "Si true, requiere revisión humana obligatoria"
+        },
+        "hitl_approved": {
+          "type": ["boolean", "null"],
+          "description": "Estado de aprobación HITL"
+        },
+        "hitl_approved_by": {
+          "type": ["string", "null"],
+          "description": "Quién aprobó"
+        },
+        "hitl_approved_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "log_file": {
+          "type": ["string", "null"],
+          "description": "Ruta al log del agente"
+        }
+      }
+    }
+  }
+}

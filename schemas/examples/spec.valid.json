@@ -1,0 +1,57 @@
+{
+  "title": "API de Autenticación JWT",
+  "version": "1.0.0",
+  "scenarios": [
+    {
+      "id": "AUTH-001",
+      "title": "Login exitoso",
+      "given": "Un usuario existe en el sistema con credenciales válidas",
+      "when": "El usuario envía POST /api/auth/login con username y password correctos",
+      "then": [
+        "Se devuelve status 200",
+        "Se incluye access_token en el body",
+        "Se incluye refresh_token en el body",
+        "Se incluye user_id en el body"
+      ],
+      "priority": "must"
+    },
+    {
+      "id": "AUTH-002",
+      "title": "Login con credenciales inválidas",
+      "given": "Un usuario intenta autenticarse con password incorrecto",
+      "when": "El usuario envía POST /api/auth/login con password incorrecto",
+      "then": [
+        "Se devuelve status 401",
+        "Se incluye mensaje de error genérico"
+      ],
+      "priority": "must"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-001",
+      "description": "El sistema debe aceptar tokens JWT válidos",
+      "criteria_type": "functional",
+      "testable": true
+    },
+    {
+      "id": "AC-002",
+      "description": "El sistema debe rechazar tokens expirados",
+      "criteria_type": "functional",
+      "testable": true
+    }
+  ],
+  "constraints": [
+    {
+      "type": "performance",
+      "description": "Tiempo de respuesta de login < 200ms",
+      "threshold": "p95 < 200ms"
+    },
+    {
+      "type": "security",
+      "description": "Tokens deben ser firmados con RS256",
+      "threshold": "256-bit RSA"
+    }
+  ],
+  "status": "approved"
+}

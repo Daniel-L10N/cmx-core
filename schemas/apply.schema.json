@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cmx-core.dev/schemas/apply.schema.json",
+  "title": "SDD Apply Progress",
+  "description": "Contrato de salida para fase de implementación",
+  "type": "object",
+  "required": ["batch", "tasks_attempted", "tasks_completed", "files_changed"],
+  "additionalProperties": true,
+  "properties": {
+    "batch": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "tasks_attempted": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "tasks_completed": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "tasks_failed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["task_id", "reason"],
+        "properties": {
+          "task_id": { "type": "string" },
+          "reason": { "type": "string" },
+          "error_log": { "type": "string" }
+        }
+      }
+    },
+    "files_changed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "action"],
+        "properties": {
+          "path": { "type": "string" },
+          "action": { "type": "string", "enum": ["created", "modified", "deleted"] },
+          "lines_added": { "type": "integer" },
+          "lines_removed": { "type": "integer" }
+        }
+      }
+    },
+    "tests_written": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "test_count"],
+        "properties": {
+          "file": { "type": "string" },
+          "test_count": { "type": "integer" },
+          "passed": { "type": "integer" },
+          "failed": { "type": "integer" }
+        }
+      }
+    },
+    "artifacts_generated": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["in_progress", "completed", "failed", "partial"],
+      "default": "in_progress"
+    }
+  }
+}

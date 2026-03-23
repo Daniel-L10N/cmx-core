@@ -1,0 +1,18 @@
+{
+  "batch_verified": 3,
+  "files_checked": ["agents/git-manager.sh"],
+  "passed": true,
+  "issues_found": [
+    {
+      "file": "agents/git-manager.sh",
+      "issue": "Typo: MensajeConventional Commits",
+      "severity": "low"
+    },
+    {
+      "file": "agents/git-manager.sh",
+      "issue": "gh auth status no validado antes de crear PR",
+      "severity": "low"
+    }
+  ],
+  "confidence_score": 9
+}

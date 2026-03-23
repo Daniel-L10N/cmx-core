@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cmx-core.dev/schemas/spec.schema.json",
+  "title": "SDD Specification",
+  "description": "Contrato de salida para fase de especificación",
+  "type": "object",
+  "required": ["title", "scenarios", "acceptance_criteria", "constraints"],
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 3
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "given", "when", "then"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "given": { "type": "string" },
+          "when": { "type": "string" },
+          "then": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "priority": { "type": "string", "enum": ["must", "should", "could", "won't"] }
+        }
+      }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "criteria_type"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string", "minLength": 10 },
+          "criteria_type": { 
+            "type": "string", 
+            "enum": ["functional", "non_functional", "technical", "business"]
+          },
+          "testable": { "type": "boolean" }
+        }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "description"],
+        "properties": {
+          "type": { 
+            "type": "string",
+            "enum": ["performance", "security", "compatibility", "regulatory", "resource"]
+          },
+          "description": { "type": "string" },
+          "threshold": { "type": "string" }
+        }
+      }
+    },
+    "definitions": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "review", "approved"],
+      "default": "draft"
+    }
+  }
+}

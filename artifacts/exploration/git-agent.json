@@ -1,0 +1,90 @@
+{
+  "type": "exploration_input",
+  "version": "1.0.0",
+  "change": "git-agent",
+  "description": "Agente especializado en control de versiones para automatizar el ciclo de vida de Git (init, add, commit, push) y la integración con GitHub dentro del workspace CMX-CORE",
+  "workspace": "/home/cmx/cmx-core",
+  "user": "Daniel-L10N",
+  "constraints": {
+    "language": "bash",
+    "tools": ["git", "gh (GitHub CLI)"],
+    "authentication": "GitHub Personal Access Token (PAT) vía variable de entorno GITHUB_TOKEN"
+  },
+  "features": [
+    {
+      "id": "F001",
+      "name": "Detección automática de repositorios",
+      "description": "Escanear el workspace /home/cmx/cmx-core en busca de directorios .git para identificar repositorios existentes"
+    },
+    {
+      "id": "F002",
+      "name": "Mensajes de commit inteligentes",
+      "description": "Analizar los archivos modificados (git diff --name-only) y generar mensajes de commit descriptivos usando patrones predefinidos y Conventional Commits"
+    },
+    {
+      "id": "F003",
+      "name": "Sincronización automática con GitHub",
+      "description": "Después de cada verificación exitosa de batch (verifier.sh), ejecutar push automático al remote configurado"
+    },
+    {
+      "id": "F004",
+      "name": "Integración con archiver.sh",
+      "description": "Al ejecutar archiver.sh, realizar Final Push con etiquetado de versión (git tag vX.Y.Z) y push de tags"
+    },
+    {
+      "id": "F005",
+      "name": "Gestión de ramas",
+      "description": "Crear ramas feature/* desde main, cambiar entre ramas, y hacer merge de ramas al completar features"
+    },
+    {
+      "id": "F006",
+      "name": "Pull Request automatizado",
+      "description": "Generar y crear Pull Requests en GitHub usando gh CLI con título y descripción automáticos"
+    }
+  ],
+  "security_requirements": [
+    {
+      "id": "SEC001",
+      "requirement": "GITHUB_TOKEN almacenado en variable de entorno, nunca hardcoded",
+      "enforcement": "Validar existencia de GITHUB_TOKEN antes de cualquier operación con gh"
+    },
+    {
+      "id": "SEC002",
+      "requirement": "No exponer tokens en logs",
+      "enforcement": "Ocultar el token en输出, mostrar solo últimos 4 caracteres"
+    },
+    {
+      "id": "SEC003",
+      "requirement": "Verificar remote URL antes de push",
+      "enforcement": "Confirmar que remote usa HTTPS y no SSH para autenticación via token"
+    }
+  ],
+  "integration_points": [
+    {
+      "agent": "verifier.sh",
+      "trigger": "passed: true en verification JSON",
+      "action": "Ejecutar git push automático"
+    },
+    {
+      "agent": "archiver.sh",
+      "trigger": "Al final del pipeline SDD",
+      "action": "Crear tag de versión y Final Push"
+    }
+  ],
+  "deliverables": [
+    {
+      "file": "agents/git-manager.sh",
+      "description": "Script principal con todas las funciones de Git"
+    },
+    {
+      "file": "agents/git-hooks.sh",
+      "description": "Hooks de Git para automatización post-commit"
+    }
+  ],
+  "success_criteria": [
+    "CMX-CORE puede hacer git push automáticamente después de verificar batches",
+    "archiver.sh crea tags de versión semántica (v1.0.0)",
+    "Mensajes de commit siguen Conventional Commits",
+    "GitHub PAT se maneja de forma segura via env var"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "name": "add-jwt-auth",
+  "summary": "Implementar autenticación JWT para la API",
+  "approach": "Usar djangorestframework-simplejwt para generar y validar tokens. Implementar endpoints de login/logout/refresh. Almacenar tokens en httpOnly cookies para mayor seguridad.",
+  "scope": {
+    "in_scope": [
+      "Modelos User con campos adicionales",
+      "Endpoints /api/auth/login, /logout, /refresh",
+      "Middleware de validación de token",
+      "Tests unitarios y de integración"
+    ],
+    "out_of_scope": [
+      "OAuth2 externo",
+      "2FA",
+      "Recuperación de contraseña"
+    ]
+  },
+  "risks": [
+    {
+      "description": "Token expira durante operación larga",
+      "severity": "medium",
+      "mitigation": "Implementar refresh token automático"
+    },
+    {
+      "description": "Vulnerabilidad XSS en cookies",
+      "severity": "high",
+      "mitigation": "Usar flags HttpOnly, Secure, SameSite"
+    }
+  ],
+  "rollback_plan": "Revertir migrations, restaurar backup de DB, desplegar versión anterior del código",
+  "estimated_effort": {
+    "hours": 16,
+    "phases": 4
+  },
+  "status": "ready_for_review"
+}

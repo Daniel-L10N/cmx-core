@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cmx-core.dev/schemas/design.schema.json",
+  "title": "SDD Design",
+  "description": "Contrato de salida para fase de diseño",
+  "type": "object",
+  "required": ["architecture", "data_model", "api_contract", "component_diagram"],
+  "additionalProperties": false,
+  "properties": {
+    "architecture": {
+      "type": "object",
+      "required": ["pattern", "layers", "description"],
+      "properties": {
+        "pattern": { 
+          "type": "string",
+          "enum": ["layered", "microservices", "event-driven", "serverless", "monolith", "hexagonal"]
+        },
+        "layers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "description": { "type": "string" },
+        "diagram": { "type": "string" }
+      }
+    },
+    "data_model": {
+      "type": "object",
+      "required": ["entities", "relationships"],
+      "properties": {
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "fields"],
+            "properties": {
+              "name": { "type": "string" },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "type"],
+                  "properties": {
+                    "name": { "type": "string" },
+                    "type": { "type": "string" },
+                    "nullable": { "type": "boolean" },
+                    "primary_key": { "type": "boolean" },
+                    "foreign_key": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["from", "to", "type"],
+            "properties": {
+              "from": { "type": "string" },
+              "to": { "type": "string" },
+              "type": { "type": "string", "enum": ["one_to_one", "one_to_many", "many_to_many"] }
+            }
+          }
+        }
+      }
+    },
+    "api_contract": {
+      "type": "object",
+      "required": ["endpoints"],
+      "properties": {
+        "base_url": { "type": "string" },
+        "version": { "type": "string" },
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["method", "path", "description", "response"],
+            "properties": {
+              "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+              "path": { "type": "string" },
+              "description": { "type": "string" },
+              "request_body": { "type": "object" },
+              "response": {
+                "type": "object",
+                "required": ["status_code", "schema"],
+                "properties": {
+                  "status_code": { "type": "integer" },
+                  "schema": { "type": "object" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "component_diagram": {
+      "type": "string",
+      "description": "Descripción textual del diagrama de componentes"
+    },
+    "sequence_diagrams": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "technology_stack": {
+      "type": "object",
+      "properties": {
+        "frontend": { "type": "array", "items": { "type": "string" } },
+        "backend": { "type": "array", "items": { "type": "string" } },
+        "infrastructure": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "review", "approved"],
+      "default": "draft"
+    }
+  }
+}

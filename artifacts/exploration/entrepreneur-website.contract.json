@@ -1,0 +1,17 @@
+{
+  "type": "exploration_contract",
+  "version": "1.0.0",
+  "change": "entrepreneur-website",
+  "agent": "explorer",
+  "pid": 11730,
+  "timestamp": "2026-03-21T20:19:29-06:00",
+  "status": "completed",
+  "output": {
+    "exploration": "/home/cmx/cmx-core/artifacts/exploration/entrepreneur-website.md",
+    "contract": "/home/cmx/cmx-core/artifacts/exploration/entrepreneur-website.contract.json"
+  },
+  "schema": {
+    "required": ["type", "version", "change", "agent", "status"],
+    "output_fields": ["exploration", "contract"]
+  }
+}

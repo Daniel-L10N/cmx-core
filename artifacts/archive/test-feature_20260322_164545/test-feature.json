@@ -1,0 +1,10 @@
+{
+  "project_type": "web-application",
+  "project_name": "mi-proyecto-web",
+  "stack_detected": ["next.js", "react", "typescript", "tailwind"],
+  "files_found": ["src/app/page.tsx", "src/components/Header.tsx", "package.json"],
+  "areas_impact": ["frontend", "api-routes", "components"],
+  "change_description": "Implementar sistema de autenticación JWT con login, registro y protección de rutas",
+  "change_type": "auth",
+  "summary": "Exploración de proyecto web para implementar sistema de autenticación JWT completo"
+}

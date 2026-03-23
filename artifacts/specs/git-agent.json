@@ -1,0 +1,561 @@
+{
+  "title": "CMX-Git-Manager Agent Specification",
+  "version": "1.0.0",
+  "overview": "Agente de automatización de Git que encapsula operaciones del ciclo de vida de Git y integración con GitHub CLI (gh) para el workspace CMX-CORE. Proporciona funciones para detección automática de repositorios, generación de commits inteligentes con Conventional Commits, sincronización con remote, y gestión de Pull Requests.",
+  "api_endpoints": [
+    {
+      "method": "EXEC",
+      "path": "agents/git-manager.sh init",
+      "description": "Inicializa el repositorio Git si no existe, detecta estado atual y configura remote",
+      "request": {
+        "headers": {},
+        "body": {},
+        "query": {}
+      },
+      "response": {
+        "status": 0,
+        "body": {
+          "initialized": true,
+          "has_remote": true,
+          "current_branch": "main",
+          "message": "Repository initialized"
+        },
+        "errors": [1]
+      }
+    },
+    {
+      "method": "EXEC",
+      "path": "agents/git-manager.sh status",
+      "description": "Muestra el estado actual del repositorio incluyendo archivos modificados, staged y sin tracking",
+      "request": {
+        "headers": {},
+        "body": {},
+        "query": {}
+      },
+      "response": {
+        "status": 0,
+        "body": {
+          "branch": "main",
+          "ahead": 0,
+          "behind": 0,
+          "staged": ["file1.ts"],
+          "modified": ["file2.ts"],
+          "untracked": ["newfile.ts"]
+        },
+        "errors": [1]
+      }
+    },
+    {
+      "method": "EXEC",
+      "path": "agents/git-manager.sh add <pattern>",
+      "description": "Añade archivos al staging area usando git add con patrón glob",
+      "request": {
+        "headers": {},
+        "body": {},
+        "query": {}
+      },
+      "response": {
+        "status": 0,
+        "body": {
+          "staged_files": 3,
+          "message": "Added 3 files to staging"
+        },
+        "errors": [1]
+      }
+    },
+    {
+      "method": "EXEC",
+      "path": "agents/git-manager.sh commit",
+      "description": "Genera mensaje de commit inteligente basado en diff y crea commit con Conventional Commits",
+      "request": {
+        "headers": {},
+        "body": {},
+        "query": {}
+      },
+      "response": {
+        "status": 0,
+        "body": {
+          "commit_hash": "abc1234",
+          "message": "feat: add new feature for user authentication",
+          "files_changed": 5
+        },
+        "errors": [1, 2]
+      }
+    },
+    {
+      "method": "EXEC",
+      "path": "agents/git-manager.sh push [--force]",
+      "description": "Sube commits al remote verificado, valida HTTPS antes de push",
+      "request": {
+        "headers": {},
+        "body": {},
+        "query": {}
+      },
+      "response": {
+        "status": 0,
+        "body": {
+          "pushed": true,
+          "remote": "origin",
+          "branch": "main",
+          "commits_pushed": 3
+        },
+        "errors": [1, 2, 3]
+      }
+    },
+    {
+      "method": "EXEC",
+      "path": "agents/git-manager.sh branch <name>",
+      "description": "Crea y cambia a una rama feature/nombre",
+      "request": {
+        "headers": {},
+        "body": {"branch_name": "feature/new-feature"},
+        "query": {}
+      },
+      "response": {
+        "status": 0,
+        "body": {
+          "created": true,
+          "branch": "feature/new-feature",
+          "current": true
+        },
+        "errors": [1]
+      }
+    },
+    {
+      "method": "EXEC",
+      "path": "agents/git-manager.sh pr <title> [--body]",
+      "description": "Crea Pull Request usando gh CLI",
+      "request": {
+        "headers": {},
+        "body": {
+          "title": "feat: add new feature",
+          "body": "Description of changes..."
+        },
+        "query": {}
+      },
+      "response": {
+        "status": 0,
+        "body": {
+          "pr_number": 42,
+          "pr_url": "https://github.com/owner/repo/pull/42",
+          "created": true
+        },
+        "errors": [1, 2, 4]
+      }
+    },
+    {
+      "method": "EXEC",
+      "path": "agents/git-manager.sh tag <version>",
+      "description": "Crea tag semántico annotated para cerrar cambio",
+      "request": {
+        "headers": {},
+        "body": {"version": "v1.0.0"},
+        "query": {}
+      },
+      "response": {
+        "status": 0,
+        "body": {
+          "tag": "v1.0.0",
+          "created": true,
+          "message": "Release v1.0.0 completed"
+        },
+        "errors": [1]
+      }
+    },
+    {
+      "method": "EXEC",
+      "path": "agents/git-manager.sh merge <source> <target>",
+      "description": "Fusiona rama source hacia target",
+      "request": {
+        "headers": {},
+        "body": {
+          "source": "feature/new-feature",
+          "target": "main"
+        },
+        "query": {}
+      },
+      "response": {
+        "status": 0,
+        "body": {
+          "merged": true,
+          "source": "feature/new-feature",
+          "target": "main",
+          "commit_hash": "def5678"
+        },
+        "errors": [1, 5]
+      }
+    },
+    {
+      "method": "EXEC",
+      "path": "agents/git-manager.sh sync",
+      "description": "Descarga cambios del remote y rebase si es necesario",
+      "request": {
+        "headers": {},
+        "body": {},
+        "query": {}
+      },
+      "response": {
+        "status": 0,
+        "body": {
+          "updated": true,
+          "commits_ahead": 0,
+          "commits_behind": 0
+        },
+        "errors": [1, 2]
+      }
+    }
+  ],
+  "database_schemas": [
+    {
+      "table": "N/A",
+      "description": "Este agente no utiliza base de datos. Opera exclusivamente sobre el sistema de archivos y repositorios Git.",
+      "fields": [],
+      "indexes": []
+    }
+  ],
+  "typescript_interfaces": [
+    {
+      "name": "GitManagerConfig",
+      "properties": [
+        {
+          "name": "workspace",
+          "type": "string",
+          "required": true,
+          "description": "Ruta base del workspace CMX-CORE"
+        },
+        {
+          "name": "githubToken",
+          "type": "string",
+          "required": false,
+          "description": "Token de GitHub para operaciones gh CLI (obtenido de GITHUB_TOKEN)"
+        },
+        {
+          "name": "defaultRemote",
+          "type": "string",
+          "required": false,
+          "description": "Nombre del remote (default: origin)"
+        },
+        {
+          "name": "defaultBranch",
+          "type": "string",
+          "required": false,
+          "description": "Rama default (default: main)"
+        }
+      ]
+    },
+    {
+      "name": "GitStatus",
+      "properties": [
+        {
+          "name": "branch",
+          "type": "string",
+          "required": true,
+          "description": "Nombre de la rama actual"
+        },
+        {
+          "name": "ahead",
+          "type": "number",
+          "required": true,
+          "description": "Commits adelante del remote"
+        },
+        {
+          "name": "behind",
+          "type": "number",
+          "required": true,
+          "description": "Commits atrás del remote"
+        },
+        {
+          "name": "staged",
+          "type": "string[]",
+          "required": true,
+          "description": "Archivos en staging"
+        },
+        {
+          "name": "modified",
+          "type": "string[]",
+          "required": true,
+          "description": "Archivos modificados sin staging"
+        },
+        {
+          "name": "untracked",
+          "type": "string[]",
+          "required": true,
+          "description": "Archivos sin tracking"
+        }
+      ]
+    },
+    {
+      "name": "CommitResult",
+      "properties": [
+        {
+          "name": "hash",
+          "type": "string",
+          "required": true,
+          "description": "Hash del commit creado"
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "required": true,
+          "description": "Mensaje del commit"
+        },
+        {
+          "name": "filesChanged",
+          "type": "number",
+          "required": true,
+          "description": "Cantidad de archivos cambiados"
+        },
+        {
+          "name": "author",
+          "type": "string",
+          "required": true,
+          "description": "Autor del commit"
+        }
+      ]
+    },
+    {
+      "name": "PushResult",
+      "properties": [
+        {
+          "name": "success",
+          "type": "boolean",
+          "required": true,
+          "description": "Push exitoso"
+        },
+        {
+          "name": "remote",
+          "type": "string",
+          "required": true,
+          "description": "Remote utilizado"
+        },
+        {
+          "name": "branch",
+          "type": "string",
+          "required": true,
+          "description": "Rama pushed"
+        },
+        {
+          "name": "commitsPushed",
+          "type": "number",
+          "required": true,
+          "description": "Commits subidos"
+        }
+      ]
+    },
+    {
+      "name": "PullRequestResult",
+      "properties": [
+        {
+          "name": "number",
+          "type": "number",
+          "required": true,
+          "description": "Número del PR"
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "required": true,
+          "description": "URL del PR"
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "required": true,
+          "description": "Título del PR"
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "required": true,
+          "description": "Estado del PR (open/closed)"
+        }
+      ]
+    },
+    {
+      "name": "GitManagerError",
+      "properties": [
+        {
+          "name": "code",
+          "type": "number",
+          "required": true,
+          "description": "Código de error"
+        },
+        {
+          "name": "message",
+          "type": "string",
+          "required": true,
+          "description": "Mensaje de error"
+        },
+        {
+          "name": "command",
+          "type": "string",
+          "required": false,
+          "description": "Comando que falló"
+        }
+      ]
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "TC-GM-001",
+      "description": "Verificar que git-manager.sh init detecta repositorio existente",
+      "steps": [
+        "Ejecutar agents/git-manager.sh init en /home/cmx/cmx-core",
+        "Verificar que detecta .git existente",
+        "Confirmar que muestra branch actual"
+      ],
+      "expected": "Salida con initialized=true y current_branch displayed",
+      "priority": "high"
+    },
+    {
+      "id": "TC-GM-002",
+      "description": "Verificar generación de commit con Conventional Commits",
+      "steps": [
+        "Crear archivo de test",
+        "Ejecutar git add y git commit via script",
+        "Verificar formato del mensaje"
+      ],
+      "expected": "Mensaje en formato type: description (ej: feat: add new feature)",
+      "priority": "high"
+    },
+    {
+      "id": "TC-GM-003",
+      "description": "Verificar validación de GITHUB_TOKEN",
+      "steps": [
+        "Ejecutar script con GITHUB_TOKEN vacío",
+        "Verificar que muestra instrucciones de configuración",
+        "Ejecutar con token válido y verificar funcionamiento"
+      ],
+      "expected": "Error claro si token no existe, éxito si token configurado",
+      "priority": "high"
+    },
+    {
+      "id": "TC-GM-004",
+      "description": "Verificar que push solo opera con remote HTTPS",
+      "steps": [
+        "Verificar remote URL con git remote get-url origin",
+        "Ejecutar push y confirmar que usa HTTPS",
+        "Verificar que rechaza remote SSH si se detecta"
+      ],
+      "expected": "Solo permite push a remotes HTTPS, rechaza SSH",
+      "priority": "high"
+    },
+    {
+      "id": "TC-GM-005",
+      "description": "Verificar creación de Pull Request con gh CLI",
+      "steps": [
+        "Ejecutar git-manager.sh pr con título",
+        "Verificar que gh api permite request",
+        "Confirmar retorno de PR URL"
+      ],
+      "expected": "PR creado exitosamente con URL retornada",
+      "priority": "high"
+    },
+    {
+      "id": "TC-GM-006",
+      "description": "Verificar creación de Tag semántico",
+      "steps": [
+        "Ejecutar git-manager.sh tag v1.0.0",
+        "Verificar tag creado con git tag -l",
+        "Confirmar que es annotated tag"
+      ],
+      "expected": "Tag v1.0.0 creado como annotated tag",
+      "priority": "medium"
+    },
+    {
+      "id": "TC-GM-007",
+      "description": "Verificar integración con archiver.sh para final push",
+      "steps": [
+        "Ejecutar script de archivado",
+        "Verificar que llama a git push correctamente",
+        "Confirmar tagging post-merge"
+      ],
+      "expected": "Final push y tag ejecutados en secuencia correcta",
+      "priority": "medium"
+    },
+    {
+      "id": "TC-GM-008",
+      "description": "Verificar comando sync con rebase",
+      "steps": [
+        "Ejecutar git sync",
+        "Verificar fetch + rebase ejecutado",
+        "Confirmar estado limpio post-sync"
+      ],
+      "expected": "Commits remotos incorporados sin conflictos",
+      "priority": "medium"
+    },
+    {
+      "id": "TC-GM-009",
+      "description": "Verificar que solo últimos 4 del token se muestran en logs",
+      "steps": [
+        "Ejecutar cualquier comando que use GITHUB_TOKEN",
+        "Buscar en output logs",
+        "Verificar mask de token"
+      ],
+      "expected": "Token muestreado como ****abcd si token es 1234abcd",
+      "priority": "medium"
+    },
+    {
+      "id": "TC-GM-010",
+      "description": "Verificar manejo de branch feature/*",
+      "steps": [
+        "Ejecutar git branch feature/test-branch",
+        "Verificar creación correcta",
+        "Confirmar cambio a nueva rama"
+      ],
+      "expected": "Rama feature/test-branch creada y activa",
+      "priority": "low"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "criterion": "El script agents/git-manager.sh debe ejecutarse sin errores en /home/cmx/cmx-core",
+      "testable": true
+    },
+    {
+      "criterion": "La función init debe detectar repositorio existente y mostrar branch actual",
+      "testable": true
+    },
+    {
+      "criterion": "Los mensajes de commit deben seguir formato Conventional Commits (type: description)",
+      "testable": true
+    },
+    {
+      "criterion": "GITHUB_TOKEN debe validarse al inicio; mostrar error claro si no está configurado",
+      "testable": true
+    },
+    {
+      "criterion": "Solo permitir push a remotes con URL HTTPS, rechazar SSH",
+      "testable": true
+    },
+    {
+      "criterion": "Los logs deben mostrar solo últimos 4 caracteres del token",
+      "testable": true
+    },
+    {
+      "criterion": "Pull Requests deben crearse usando gh CLI y retornar URL del PR",
+      "testable": true
+    },
+    {
+      "criterion": "Tags semánticos deben crearse como annotated tags con mensaje",
+      "testable": true
+    },
+    {
+      "criterion": "El script debe integrarse con archiver.sh para final push y tagging",
+      "testable": true
+    },
+    {
+      "criterion": "Todas las funciones deben retornar códigos de salida apropiados (0 éxito, 1 error general)",
+      "testable": true
+    },
+    {
+      "criterion": "El script debe ser idempotente: ejecución repetida no causa efectos secundarios no deseados",
+      "testable": true
+    },
+    {
+      "criterion": "La documentación de uso debe ser accesible via --help flag",
+      "testable": true
+    }
+  ],
+  "confidence_score": 9
+}

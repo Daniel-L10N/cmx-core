@@ -1,0 +1,57 @@
+{
+  "title": "CMX-Git-Manager Agent",
+  "version": "1.0.0",
+  "change": "git-agent",
+  "summary": "Agente especializado en control de versiones que automatiza el ciclo de vida de Git y la integración con GitHub para el workspace CMX-CORE",
+  "approach": "Desarrollo de scripts Bash que encapsulan operaciones Git comunes y las integran con GitHub CLI (gh) para automatización del flujo de trabajo SDD. El agente permitirá: detección automática de repositorios, generación de commits inteligentes con Conventional Commits, push automático post-verificación de batches, y tagging semántico al cerrar cambios.",
+  "scope": {
+    "in_scope": [
+      "Script principal agents/git-manager.sh con funciones para init, add, commit, push",
+      "Detección automática de repositorios en /home/cmx/cmx-core",
+      "Generación de mensajes de commit inteligentes basados en diff",
+      "Sincronización automática con GitHub post-verificación",
+      "Integración con archiver.sh para Final Push y tagging",
+      "Gestión segura de GITHUB_TOKEN via variable de entorno",
+      "Creación de ramas feature/* y merge",
+      "Pull Request automatizado via gh CLI"
+    ],
+    "out_of_scope": [
+      "Autenticación OAuth interactiva",
+      "Manejo de conflictos de merge (manual resolution)",
+      "Git hooks complejos que requieran Node.js",
+      "Integración con otros proveedores (GitLab, Bitbucket)"
+    ]
+  },
+  "security": {
+    "GITHUB_TOKEN": "Almacenado en variable de entorno GITHUB_TOKEN, nunca hardcoded",
+    "token_display": "Mostrar solo últimos 4 caracteres en logs",
+    "remote_validation": "Verificar que remote usa HTTPS antes de push"
+  },
+  "risks": [
+    {
+      "description": "Token de GitHub expirado o sin permisos",
+      "severity": "high",
+      "mitigation": "Validar GITHUB_TOKEN al inicio y mostrar instrucciones de renovación"
+    },
+    {
+      "description": "Push a remote incorrecto",
+      "severity": "medium",
+      "mitigation": "Confirmar remote URL antes de cualquier push"
+    }
+  ],
+  "estimated_effort": {
+    "hours": 6,
+    "batches": 2
+  },
+  "confidence_score": 8,
+  "alternatives_considered": [
+    {
+      "name": "Usar libgit2 en C",
+      "reason_rejected": "Excesiva complejidad para operaciones básicas de Git"
+    },
+    {
+      "name": "GitPython en Python",
+      "reason_rejected": "Dependencia adicional, Bash es suficiente para el caso de uso"
+    }
+  ]
+}

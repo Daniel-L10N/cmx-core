@@ -1,0 +1,25 @@
+#!/bin/bash
+# Auto-load cognitive stack context when entering workspace
+
+WORKSPACE="/home/cmx/cognitive-stack"
+
+# Function to show context
+show_context() {
+    echo ""
+    echo "🧠 Cognitive Stack Context"
+    echo "========================="
+    echo "Workspace: $WORKSPACE"
+    echo ""
+    echo "📦 Memorias guardadas:"
+    engram search "cognitive-stack" 2>/dev/null | head -10
+    echo ""
+    echo "⚡ Listo para usar SDD:"
+    echo "   /sdd-new <nombre>  → Crear feature"
+    echo "   /sdd-continue     → Siguiente fase"
+    echo ""
+}
+
+# Check if in workspace or subdirectory
+if [[ "$PWD" == "$WORKSPACE"* ]]; then
+    show_context
+fi
