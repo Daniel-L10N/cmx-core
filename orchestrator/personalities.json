@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "description": "Configuración de Personalidades CMX-CORE",
-  "active": "cmx-dangerous",
+  "active": "cmx-standard",
   "personalities": {
     "cmx-professional": {
       "name": "CMX Professional",
