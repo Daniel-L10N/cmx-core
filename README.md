@@ -1,240 +1,345 @@
-# Cognitive Stack — SDD Pipeline Engine
+# CMX-CORE - Sistema de Control Modular MX
 
-## Sistema de Orquestación Multi-Agente Real
-
-Este stack implementa un sistema de orquestación de agentes con:
-
-- **Agentes reales** (procesos Bash independientes)
-- **DAG ejecutable** (pipeline.yaml con dependencias)
-- **Contratos validados** (JSON Schemas para cada fase)
-- **HITL real** (gates de aprobación con bloqueo)
+> **Pipeline de desarrollo con Agentes de IA**  
+> Construye aplicaciones completas usando agentes especializados con supervisión humana.
 
 ---
 
-## Estructura
+## ¿Qué es CMX-CORE?
 
+Es un **sistema de orquestación multi-agente** que te permite construir software usando IA de forma estructurada:
+
+- 🔍 **Explora** ideas y requerimientos
+- 📋 **Propone** soluciones técnicas
+- 📝 **Especifica** requisitos exactos
+- 🎨 **Diseña** la arquitectura
+- ⚒️ **Implementa** en batches controlado
+- ✅ **Verifica** cada paso
+- 📦 **Archiva** el resultado
+
+---
+
+## Requisitos Previos
+
+### Sistema Operativo
+- Linux (Ubuntu 22.04+, Debian 11+, Fedora 38+)
+- macOS (con Bash 4+)
+- WSL2 (Windows Subsystem for Linux)
+
+### Dependencias
+
+| Paquete | Versión mínima | Para qué sirve |
+|---------|---------------|----------------|
+| `bash` | 4.0+ | Shell del sistema |
+| `jq` | 1.6+ | Procesamiento JSON |
+| `git` | 2.0+ | Control de versiones |
+| `opencode` | latest | Motor de ejecución de agentes IA |
+
+### Instalar dependencias
+
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install -y bash jq git curl
+
+# Fedora/RHEL
+sudo dnf install -y bash jq git curl
+
+# macOS
+brew install jq git curl
 ```
-cmx-core/
-├── agents/                    # Agentes reales (procesos)
-│   ├── explorer.sh
-│   ├── proposer.sh
-│   ├── spec-writer.sh
-│   ├── designer.sh
-│   ├── task-planner.sh
-│   ├── implementer.sh
-│   ├── verifier.sh
-│   └── archiver.sh
-├── dag/
-│   └── pipeline.yaml          # DAG ejecutable con dependencias
-├── schemas/                   # JSON Schemas para validación
-│   ├── proposal.schema.json
-│   ├── spec.schema.json
-│   ├── design.schema.json
-│   ├── tasks.schema.json
-│   ├── apply.schema.json
-│   ├── verify.schema.json
-│   └── examples/              # Ejemplos válidos e inválidos
-├── orchestrator/
-│   ├── pipeline.sh            # Motor DAG
-│   └── state.json             # Estado del pipeline
-├── validators/
-│   └── validate.sh            # Validador de schemas
-└── run.sh                     # Comando único
+
+### Instalar OpenCode
+
+```bash
+# Instalación oficial
+curl -sSL https://opencode.ai/install.sh | sh
+
+# Verificar instalación
+opencode --version
+```
+
+---
+
+## Instalación en 3 Pasos
+
+### 1. Clonar el repositorio
+
+```bash
+git clone https://github.com/Daniel-L10N/cmx-core.git
+cd cmx-core
+```
+
+### 2. Verificar estructura
+
+```bash
+ls -la
+# Debe mostrar:
+# agents/   dag/   orchestrator/   schemas/   validators/
+# run.sh    README.md   MANUAL.md
+```
+
+### 3. ¡Listo! 🚀
+
+```bash
+# Ver ayuda
+./run.sh help
+
+# Ver estado
+./run.sh status
 ```
 
 ---
 
 ## Uso Rápido
 
-```bash
-cd /home/cmx/cmx-core
+### Flujo Completo de Desarrollo
 
-# Inicializar
+```bash
+cd cmx-core
+
+# 1. Inicializar el workspace
 ./run.sh init
 
-# Ver estado
-./run.sh status
+# 2. Ejecutar pipeline completo (con HITL)
+./run.sh run mi-feature "crear una app de tareas con React"
 
-# Ejecutar pipeline completo (con HITL)
-./run.sh run mi-feature "nueva funcionalidad"
-
-# Solo una fase
-./run.sh explore "investigar autenticación"
-./run.sh validate proposal schemas/examples/proposal.valid.json
+# O ejecutar paso a paso:
+./run.sh explore "autenticación JWT"
+./run.sh propose
+./run.sh spec
+./run.sh design
+./run.sh tasks
+./run.sh apply 1
+./run.sh verify 1
+./run.sh archive
 ```
+
+### Comandos Principales
+
+| Comando | Descripción |
+|---------|-------------|
+| `./run.sh init` | Inicializar workspace |
+| `./run.sh status` | Ver estado actual |
+| `./run.sh run "nombre" "descripción"` | Ejecutar pipeline completo |
+| `./run.sh explore "tema"` | Investigar un tema |
+| `./run.sh validate <tipo> <archivo>` | Validar schema |
+| `./run.sh reset` | Resetear pipeline |
 
 ---
 
-## Alias Disponibles
-
-Agregar a `~/.bashrc`:
-
-```bash
-alias cs-pipeline='cd /home/cmx/cmx-core && ./run.sh'
-alias cs-run='cd /home/cmx/cmx-core && ./run.sh run'
-alias cs-status='cd /home/cmx/cmx-core && ./run.sh status'
-```
-
----
-
-## Flujo del Pipeline
+## Arquitectura del Sistema
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ EXPLORE → PROPOSE → [SPEC ║ DESIGN] → TASKS → APPLY →     │
-│                                        VERIFY → ARCHIVE     │
+│                    CMX-CORE PIPELINE                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌─────────┐    ┌─────────┐    ┌─────────┐                │
+│  │ EXPLORE │───▶│ PROPOSE │───▶│  SPEC   │                │
+│  └─────────┘    └─────────┘    └─────────┘                │
+│       │              │              │                       │
+│       │              │              │                       │
+│       ▼              ▼              ▼                       │
+│  ┌─────────────────────────────────────────┐               │
+│  │              HITL GATES                 │               │
+│  │   (Aprobación humana requerida)        │               │
+│  └─────────────────────────────────────────┘               │
+│                       │                                      │
+│       ┌───────────────┴───────────────┐                     │
+│       ▼                               ▼                      │
+│  ┌─────────┐                   ┌─────────┐                  │
+│  │  DESIGN │                   │  TASKS  │                  │
+│  └─────────┘                   └─────────┘                  │
+│       │                               │                       │
+│       └───────────────┬───────────────┘                     │
+│                       ▼                                      │
+│              ┌─────────────┐                                │
+│              │    APPLY    │                                │
+│              │  (batches)  │                                │
+│              └─────────────┘                                │
+│                       │                                      │
+│                       ▼                                      │
+│              ┌─────────────┐                                │
+│              │   VERIFY    │                                │
+│              └─────────────┘                                │
+│                       │                                      │
+│                       ▼                                      │
+│              ┌─────────────┐                                │
+│              │   ARCHIVE   │                                │
+│              └─────────────┘                                │
+│                                                             │
 └─────────────────────────────────────────────────────────────┘
-         ↑            ↑                    ↑
-         │            │                    │
-      HITL          HITL                 HITL
 ```
 
-### GATES de Aprobación (HITL Real)
+### Agentes Disponibles
 
-| Gate | Fase | Bloqueo |
-|------|------|---------|
-| `proposal_approved` | propose | ✅ Sí |
-| `spec_approved` | spec | ✅ Sí |
-| `design_approved` | design | ✅ Sí |
-| `tasks_approved` | tasks | ✅ Sí |
-| `batch_approved` | apply | ✅ Sí |
-| `archive_approved` | archive | ✅ Sí |
+| Agente | Función |
+|--------|---------|
+| `explorer.sh` | Investiga el tema y contexto |
+| `proposer.sh` | Genera propuesta técnica |
+| `spec-writer.sh` | Escribe especificación formal |
+| `designer.sh` | Diseña arquitectura UI/UX |
+| `task-planner.sh` | Planifica tareas de implementación |
+| `implementer.sh` | Implementa código |
+| `verifier.sh` | Verifica implementación |
+| `archiver.sh` | Archiva y cierra el cambio |
 
 ---
 
-## Contratos de Salida
+## Estructura de Archivos
 
-Cada fase produce artifacts con schema definido:
+```
+cmx-core/
+├── agents/              # Scripts de agentes
+│   ├── explorer.sh
+│   ├── proposer.sh
+│   └── ...
+├── orchestrator/        # Motor de orquestación
+│   ├── pipeline.sh
+│   ├── monitor.sh
+│   └── state.json
+├── schemas/             # JSON Schemas de validación
+├── dag/                 # Definición del DAG
+├── validators/          # Validadores
+├── artifacts/           # Artefactos generados
+│   ├── exploration/
+│   ├── proposals/
+│   ├── specs/
+│   ├── designs/
+│   ├── tasks/
+│   ├── implementation/
+│   ├── verification/
+│   └── archive/
+├── run.sh              # Punto de entrada único
+└── README.md
+```
 
-| Fase | Schema | Campos Requeridos |
-|------|--------|-------------------|
-| propose | `proposal.schema.json` | name, approach, risks, rollback_plan |
-| spec | `spec.schema.json` | title, scenarios, acceptance_criteria |
-| design | `design.schema.json` | architecture, data_model, api_contract |
-| tasks | `tasks.schema.json` | phases, total_tasks, estimated_hours |
-| apply | `apply.schema.json` | batch, tasks_completed, files_changed |
-| verify | `verify.schema.json` | overall_status, scenarios_tested, issues |
+---
 
-### Ejemplo de Validación
+## Ejemplo: Crear una App
 
 ```bash
-# Validar proposal
-./run.sh validate proposal artifacts/proposals/mi-feature.md
+# 1. Navegar al proyecto
+cd cmx-core
 
-# Validar spec
-./run.sh validate spec artifacts/specs/mi-feature.md
+# 2. Inicializar
+./run.sh init
+
+# 3. Ejecutar con tu idea
+./run.sh run mi-app "una app de notas con React y localStorage"
+
+# 4. El sistema:
+#    - Explorará la idea
+#    - Propondrá arquitectura
+#    - Escribirá specs
+#    - Implementará en batches
+#    - Verificará cada batch
+#    - Te pide aprobación en cada HITL gate
 ```
 
 ---
 
-## Arquitectura Técnica
+## Configuración Opcional
 
-### 1. Agentes Reales
+### Alias útiles (agregar a ~/.bashrc)
 
-Cada agente es un script Bash que:
-- Se ejecuta como proceso independiente
-- Recibe parámetros: PROJECT, CHANGE_NAME, BATCH
-- Produce artifact en ubicación predefinida
-- Retorna código de salida (0=éxito, 1=fallo)
-- Logs en `orchestrator/logs/`
-
-### 2. DAG Ejecutable
-
-Archivo `dag/pipeline.yaml` define:
-- Fases con dependencias
-- Condiciones de ejecución
-- GATES de aprobación
-- Tiempos de timeout
-- Modo (parallel/sequential)
-
-### 3. Pipeline Engine
-
-`orchestrator/pipeline.sh`:
-- Lee estado desde `state.json`
-- Ejecuta fases según DAG
-- Valida contratos antes de continuar
-- Solicita aprobación humana en gates
-- Registra progreso en logs
-
-### 4. Sistema de Validación
-
-`validators/validate.sh`:
-- Verifica JSON válido
-- Valida campos requeridos
-- Compara tipos de datos
-- Reporta errores específicos
-
----
-
-## Estado del Pipeline
-
-```json
-{
-  "pipeline": "SDD",
-  "version": "1.0.0",
-  "current_phase": "apply",
-  "change_name": "mi-feature",
-  "approved_gates": {
-    "proposal_approved": true,
-    "spec_approved": true,
-    "design_approved": true,
-    "tasks_approved": true
-  },
-  "artifacts": {
-    "exploration": "artifacts/exploration/mi-feature.md",
-    "proposal": "artifacts/proposals/mi-feature.md",
-    "spec": "artifacts/specs/mi-feature.md"
-  },
-  "phases_completed": ["explore", "propose", "spec", "design", "tasks"]
-}
-```
-
----
-
-## Comparación: Antes vs Después
-
-| Aspecto | Antes | Después |
-|---------|-------|---------|
-| Agentes | Prompts en JSON | Procesos Bash reales |
-| DAG | Texto en prompt | YAML ejecutable |
-| Validación | Manual | Automática con Schemas |
-| HITL | Sugerencia | Bloqueo real |
-| Estado | Solo contexto | JSON persistente |
-
----
-
-## Dependencias
-
-- `bash` 4+
-- `jq` 1.6+
-- `opencode` (para ejecutar agentes)
-- `python3` (opcional, para validación avanzada)
-
-Instalación de dependencias:
 ```bash
-sudo dnf install -y jq
+alias cs='cd ~/cmx-core && ./run.sh'
+alias cs-run='cd ~/cmx-core && ./run.sh run'
+alias cs-status='cd ~/cmx-core && ./run.sh status'
+alias cs-init='cd ~/cmx-core && ./run.sh init'
+```
+
+### Variables de entorno
+
+```bash
+# Opcional: Directorio de trabajo custom
+export CMX_WORKSPACE=/tu/path/custom
 ```
 
 ---
 
-## Troubleshooting
+## Solución de Problemas
 
-### Error: "Schema no encontrado"
+### "Command not found: jq"
+
 ```bash
-ls -la schemas/
+# Ubuntu/Debian
+sudo apt install jq
+
+# Fedora
+sudo dnf install jq
+
+# macOS
+brew install jq
 ```
 
-### Error: "JSON inválido"
+### "Permission denied" en scripts
+
 ```bash
-jq empty tu-archivo.json
+chmod +x run.sh agents/*.sh
 ```
 
-### Resetear pipeline
+### Ver logs
+
+```bash
+tail -f orchestrator/logs/*.log
+```
+
+### Resetear todo
+
 ```bash
 ./run.sh reset
 ```
 
-### Ver logs
-```bash
-tail -f orchestrator/logs/*.log
-```
+---
+
+## Tecnologías Soportadas
+
+### Frontend
+- React / Next.js
+- Vue / Nuxt
+- Svelte
+- TypeScript
+- Tailwind CSS
+
+### Backend
+- Node.js / Express
+- Python / Django / FastAPI
+- Go
+- Rust
+
+### Bases de Datos
+- PostgreSQL
+- MySQL
+- SQLite
+- MongoDB
+
+---
+
+## Contribuir
+
+1. Fork del repo
+2. Crear branch: `git checkout -b feature/nueva-funcionalidad`
+3. Commit: `git commit -m "feat: agregar nueva funcionalidad"`
+4. Push: `git push origin feature/nueva-funcionalidad`
+5. Abrir Pull Request
+
+---
+
+## Licencia
+
+MIT License - Daniel-L10N
+
+---
+
+## Links
+
+- 📦 **Repositorio**: https://github.com/Daniel-L10N/cmx-core
+- 📖 **Documentación**: Ver `MANUAL.md` para guía detallada
+- 🐛 **Issues**: https://github.com/Daniel-L10N/cmx-core/issues
+
+---
+
+*¡Construye más, codifica menos!*
