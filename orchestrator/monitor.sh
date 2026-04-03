@@ -1,7 +1,7 @@
 #!/bin/bash
 # Cognitive Stack v2 — Torre de Control / Monitor
 # Monitorea el estado de todos los agentes en tiempo real
-# Uso: ./monitor.sh [--once] [--json]
+# Uso: ./monitor.sh [--once] [--json] [--summary]
 
 set -e
 
@@ -23,14 +23,25 @@ NC='\033[0m'
 # Modos
 ONCE=false
 JSON_OUTPUT=false
+SUMMARY_MODE="false"
 
-if [[ "${1:-}" == "--once" ]]; then
-    ONCE=true
-fi
-
-if [[ "${1:-}" == "--json" ]]; then
-    JSON_OUTPUT=true
-fi
+# Process all arguments
+while [[ $# -gt 0 ]]; do
+    case "${1:-}" in
+        --once)
+            ONCE=true
+            ;;
+        --json)
+            JSON_OUTPUT=true
+            ;;
+        --summary)
+            SUMMARY_MODE="true"
+            ;;
+        *)
+            ;;
+    esac
+    shift
+done
 
 # ============================================================
 # FUNCIONES DE FORMATEO
@@ -129,7 +140,7 @@ check_pid_alive() {
 }
 
 # ============================================================
-# RENDERIZADO DE TABLA
+# RENDERIZADO DE TABLA (FULL)
 # ============================================================
 
 render_table() {
@@ -241,6 +252,162 @@ render_table() {
 }
 
 # ============================================================
+# RESUMEN EJECUTIVO (máx 10 líneas)
+# ============================================================
+
+render_summary() {
+    local change_name
+    change_name=$(jq -r '.change_name // "N/A"' "$STATE_FILE")
+    
+    echo ""
+    echo -e "${MAGENTA}════════════════════════════════════════════════════════${NC}"
+    echo -e "${MAGENTA}  📊 RESUMEN EJECUTIVO - ${change_name}${NC}"
+    echo -e "${MAGENTA}════════════════════════════════════════════════════════${NC}"
+    
+    # Contadores
+    local total=0
+    local completed=0
+    local running=0
+    local failed=0
+    
+    local agents=("explorer" "proposer" "spec" "design" "tasks" "implementer" "verifier" "archiver")
+    
+    for agent in "${agents[@]}"; do
+        local status
+        status=$(jq -r ".agents.$agent.status // \"pending\"" "$STATE_FILE")
+        
+        total=$((total + 1))
+        
+        case "$status" in
+            "completed") completed=$((completed + 1)) ;;
+            "running")   running=$((running + 1)) ;;
+            "failed"|"timeout") failed=$((failed + 1)) ;;
+        esac
+    done
+    
+    echo ""
+    echo -e "  ${WHITE}Progreso:${NC} ${GREEN}${completed}${NC}/${total} completados"
+    echo -e "  ${WHITE}Corriendo:${NC} ${CYAN}${running}${NC}"
+    if [ "$failed" -gt 0 ]; then
+        echo -e "  ${WHITE}Fallidos:${NC} ${RED}${failed}${NC}"
+    fi
+    
+    # Lista de agentes (máx 10 líneas)
+    echo ""
+    echo -e "${WHITE}Estado:${NC}"
+    
+    local line_count=0
+    for agent in "${agents[@]}"; do
+        local status started_at end_time output_file summary
+        status=$(jq -r ".agents.$agent.status // \"pending\"" "$STATE_FILE")
+        started_at=$(jq -r ".agents.$agent.started_at // null" "$STATE_FILE")
+        end_time=$(jq -r ".agents.$agent.completed_at // null" "$STATE_FILE")
+        output_file=$(jq -r ".agents.$agent.output_file // null" "$STATE_FILE")
+        summary=$(jq -r ".agents.$agent.summary // null" "$STATE_FILE")
+        
+        local emoji
+        case "$status" in
+            "pending")    emoji="⏸" ;;
+            "running")    emoji="🔄" ;;
+            "completed")  emoji="✅" ;;
+            "failed")     emoji="❌" ;;
+            "timeout")    emoji="⏱" ;;
+            "cancelled")  emoji="🚫" ;;
+            *)            emoji="❓" ;;
+        esac
+        
+        local duration="-"
+        if [ -n "$started_at" ] && [ "$started_at" != "null" ]; then
+            local start_epoch end_epoch
+            start_epoch=$(date -d "$started_at" +%s 2>/dev/null || echo "0")
+            
+            if [ -n "$end_time" ] && [ "$end_time" != "null" ]; then
+                end_epoch=$(date -d "$end_time" +%s 2>/dev/null || echo "0")
+            else
+                end_epoch=$(date +%s)
+            fi
+            
+            local diff=$((end_epoch - start_epoch))
+            local mins=$((diff / 60))
+            local secs=$((diff % 60))
+            duration=$(printf "%d:%02d" $mins $secs)
+        fi
+        
+        # Primera línea del summary o info del output
+        local info=""
+        if [ -n "$summary" ] && [ "$summary" != "null" ]; then
+            info=$(echo "$summary" | head -1 | cut -c1-50)
+        elif [ -n "$output_file" ] && [ "$output_file" != "null" ]; then
+            info=$(basename "$output_file" 2>/dev/null || echo "$output_file")
+        fi
+        
+        printf "  %s %-12s %s %s\n" "$emoji" "$agent" "$duration" "$info"
+        line_count=$((line_count + 1))
+        
+        if [ "$line_count" -ge 10 ]; then
+            break
+        fi
+    done
+    
+    echo ""
+    echo -e "${DIM}Usa monitor.sh sin --summary para ver estado completo${NC}"
+    echo ""
+}
+
+# ============================================================
+# SECCIÓN HITL (Human-In-The-Loop)
+# ============================================================
+
+render_hitl_section() {
+    local agents=("explorer" "proposer" "spec" "design" "tasks" "implementer" "verifier" "archiver")
+    
+    local hitl_agents=()
+    local pending_approval=()
+    
+    for agent in "${agents[@]}"; do
+        local status requires_hitl
+        status=$(jq -r ".agents.$agent.status // \"pending\"" "$STATE_FILE")
+        requires_hitl=$(jq -r ".agents.$agent.requires_hitl // false" "$STATE_FILE")
+        
+        if [ "$requires_hitl" == "true" ]; then
+            hitl_agents+=("$agent")
+            
+            if [ "$status" == "completed" ]; then
+                pending_approval+=("$agent")
+            fi
+        fi
+    done
+    
+    # Solo mostrar si hay HITL pendiente
+    if [ ${#pending_approval[@]} -gt 0 ]; then
+        echo ""
+        echo -e "${RED}════════════════════════════════════════════════════════${NC}"
+        echo -e "${RED}  🚨 APROBACIÓN HUMANA REQUERIDA${NC}"
+        echo -e "${RED}════════════════════════════════════════════════════════${NC}"
+        echo ""
+        
+        for agent in "${pending_approval[@]}"; do
+            local summary output_file
+            summary=$(jq -r ".agents.$agent.summary // \"Sin resumen\"" "$STATE_FILE")
+            output_file=$(jq -r ".agents.$agent.output_file // null" "$STATE_FILE")
+            
+            echo -e "  ${YELLOW}📋 ${agent^^}:${NC}"
+            
+            # Resumen máx 5 líneas
+            echo "$summary" | head -5 | sed 's/^/     /'
+            
+            if [ -n "$output_file" ] && [ "$output_file" != "null" ]; then
+                echo -e "  ${DIM}📄 Output: $(basename "$output_file")${NC}"
+            fi
+            echo ""
+        done
+        
+        echo -e "${DIM}Ejecuta: ./pipeline.sh run <change> para continuar${NC}"
+        echo ""
+    fi
+}
+
+# ============================================================
 # MODO JSON (para integración)
 # ============================================================
 
@@ -258,22 +425,36 @@ main() {
         exit 1
     fi
     
-    if [ "$JSON_OUTPUT" == "true" ]; then
+    if [ "$JSON_OUTPUT" = "true" ]; then
         render_json
         exit 0
     fi
     
-    if [ "$ONCE" == "true" ]; then
+    if [ "$ONCE" = "true" ]; then
         # Modo single-shot (para testing)
         tput clear 2>/dev/null || echo ""
-        render_table
+        
+        if [ "$SUMMARY_MODE" = "true" ]; then
+            render_summary
+            render_hitl_section
+        else
+            render_table
+            render_hitl_section
+        fi
         exit 0
     fi
     
     # Modo continuo
     while true; do
         tput clear 2>/dev/null || echo ""
-        render_table
+        
+        if [ "$SUMMARY_MODE" = "true" ]; then
+            render_summary
+            render_hitl_section
+        else
+            render_table
+            render_hitl_section
+        fi
         sleep 2
     done
 }

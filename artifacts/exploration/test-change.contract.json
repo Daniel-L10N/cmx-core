@@ -1,0 +1,17 @@
+{
+  "type": "exploration_contract",
+  "version": "1.0.0",
+  "change": "test-change",
+  "agent": "explorer",
+  "pid": 21586,
+  "timestamp": "2026-04-03T14:03:30-06:00",
+  "status": "completed",
+  "output": {
+    "exploration": "/home/cmx/cmx-core/artifacts/exploration/test-change.md",
+    "contract": "/home/cmx/cmx-core/artifacts/exploration/test-change.contract.json"
+  },
+  "schema": {
+    "required": ["type", "version", "change", "agent", "status"],
+    "output_fields": ["exploration", "contract"]
+  }
+}

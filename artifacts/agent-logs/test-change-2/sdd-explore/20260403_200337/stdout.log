@@ -1,0 +1,7 @@
+=== EXPLORER AGENT (PID: 21652) ===
+Workspace: /home/cmx/cmx-core
+Change: test-change-2
+Explorando estructura...
+✓ Exploración completada: /home/cmx/cmx-core/artifacts/exploration/test-change-2.md
+✓ Contrato generado: /home/cmx/cmx-core/artifacts/exploration/test-change-2.contract.json
+Lines: 157

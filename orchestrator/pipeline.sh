@@ -9,6 +9,22 @@ DAG_FILE="${DAG_FILE:-$WORKSPACE/dag/pipeline.yaml}"
 STATE_FILE="$WORKSPACE/orchestrator/state.json"
 LOG_DIR="$WORKSPACE/orchestrator/logs"
 
+# =============================================================================
+# PHASE 2: AGENT COMMUNICATION - Configuración
+# =============================================================================
+
+# Cargar funciones de comunicación de agentes
+AGENT_COMM_SCRIPT="$WORKSPACE/orchestrator/agent-comm.sh"
+if [ -f "$AGENT_COMM_SCRIPT" ]; then
+    source "$AGENT_COMM_SCRIPT"
+fi
+
+# Timeout por defecto para agentes (en minutos)
+AGENT_TIMEOUT_MINUTES="${AGENT_TIMEOUT_MINUTES:-30}"
+
+# Directorio de comunicación entre agentes
+AGENT_COMM_DIR="$WORKSPACE/artifacts/agent-comm"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -303,6 +319,154 @@ check_dependencies() {
 }
 
 # =============================================================================
+# PHASE 2: AGENT COMMUNICATION - Helper Functions
+# =============================================================================
+
+# Inicializa archivos de comunicación antes de ejecutar un agente
+init_agent_comm() {
+    local phase="$1"
+    local change="$2"
+    
+    local comm_dir="$AGENT_COMM_DIR/$change"
+    mkdir -p "$comm_dir"
+    
+    # Determinar nombre del agente
+    local agent_name="$phase"
+    if [ -z "$agent_name" ]; then
+        agent_name=$(get_phase_agent "$phase")
+    fi
+    
+    # Inicializar estructura de comunicación
+    if type create_agent_comm >/dev/null 2>&1; then
+        create_agent_comm "$agent_name" "$change"
+    fi
+    
+    # Escribir estado inicial "running" en status.json
+    local status_file="$comm_dir/${agent_name}_status.json"
+    cat > "$status_file" << EOF
+{
+  "agent": "$agent_name",
+  "change": "$change",
+  "status": "running",
+  "started_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "completed_at": null,
+  "exit_code": null,
+  "summary": null,
+  "output_path": null
+}
+EOF
+    
+    log "Comm initialized: $status_file"
+}
+
+# Actualiza el estado del agente al finalizar
+update_agent_status() {
+    local phase="$1"
+    local change="$2"
+    local exit_code="$3"
+    local summary="$4"
+    
+    local agent_name="$phase"
+    if [ -z "$agent_name" ]; then
+        agent_name=$(get_phase_agent "$phase")
+    fi
+    
+    local status_file="$AGENT_COMM_DIR/$change/${agent_name}_status.json"
+    
+    if [ -f "$status_file" ]; then
+        local status="completed"
+        if [ "$exit_code" -ne 0 ]; then
+            status="failed"
+        fi
+        
+        local completed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        
+        # Usar jq para actualizar el archivo de estado
+        local tmp_file=$(mktemp)
+        jq --arg status "$status" \
+           --arg completed_at "$completed_at" \
+           --arg exit_code "$exit_code" \
+           --arg summary "$summary" \
+           '.status = $status | .completed_at = $completed_at | .exit_code = ($exit_code | tonumber) | .summary = $summary' \
+           "$status_file" > "$tmp_file" && mv "$tmp_file" "$status_file"
+        
+        log "Status updated: $status_file"
+    fi
+}
+
+# Espera a que el agente termine usando polling de status.json
+wait_agent_completion() {
+    local phase="$1"
+    local change="$2"
+    local pid_file="$3"
+    
+    local agent_name="$phase"
+    if [ -z "$agent_name" ]; then
+        agent_name=$(get_phase_agent "$phase")
+    fi
+    
+    local status_file="$AGENT_COMM_DIR/$change/${agent_name}_status.json"
+    
+    # Timeout configurable
+    local timeout_min="${AGENT_TIMEOUT_MINUTES:-30}"
+    local timeout_sec=$((timeout_min * 60))
+    local poll_interval=5
+    local elapsed=0
+    
+    log "Waiting for $agent_name to complete (timeout: ${timeout_min} min)"
+    
+    # Verificar si inotifywait está disponible
+    local use_inotify=false
+    if command -v inotifywait >/dev/null 2>&1; then
+        use_inotify=true
+    fi
+    
+    while true; do
+        # Verificar si el proceso sigue corriendo
+        if [ -f "$pid_file" ]; then
+            local pid=$(cat "$pid_file" 2>/dev/null)
+            if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+                # Proceso terminó
+                break
+            fi
+        fi
+        
+        # Verificar timeout
+        if [ $elapsed -ge $timeout_sec ]; then
+            log_error "Timeout: $agent_name (${timeout_min} min)"
+            if [ -f "$pid_file" ]; then
+                local pid=$(cat "$pid_file" 2>/dev/null)
+                [ -n "$pid" ] && kill -9 "$pid" 2>/dev/null
+            fi
+            return 124  # Timeout exit code
+        fi
+        
+        # Polling del status.json
+        if [ -f "$status_file" ]; then
+            local current_status=$(jq -r '.status' "$status_file" 2>/dev/null || echo "running")
+            
+            if [ "$current_status" == "completed" ] || [ "$current_status" == "failed" ]; then
+                log "Agent $agent_name finished with status: $current_status"
+                break
+            fi
+        fi
+        
+        # Usar inotifywait si está disponible (más eficiente)
+        if [ "$use_inotify" == "true" ]; then
+            inotifywait -t 2 -q -e close_write "$status_file" 2>/dev/null || true
+        else
+            sleep "$poll_interval"
+            elapsed=$((elapsed + poll_interval))
+        fi
+        
+        echo -ne "\r    Transcurrido: ${elapsed}s / ${timeout_sec}s "
+    done
+    
+    echo ""
+    return 0
+}
+
+# =============================================================================
 # EJECUCIÓN DE FASE (aisla cada agente en subshell/proceso)
 # =============================================================================
 
@@ -318,6 +482,9 @@ run_phase() {
     local script=$(get_phase_script "$phase")
     local agent=$(get_phase_agent "$phase")
     
+    # Determinar nombre de agente
+    local agent_name="${agent:-$phase}"
+    
     if [ -z "$script" ] && [ -z "$agent" ]; then
         log_error "No hay script ni agent definido para: $phase"
         return 1
@@ -331,43 +498,68 @@ run_phase() {
         fi
     fi
     
-    local log_file="$LOG_DIR/${phase}_${change}_$(date +%s).log"
+    # 2.4: Inicializar archivos de comunicación antes de ejecutar
+    init_agent_comm "$phase" "$change"
     
-    # Ejecutar en SUBPROCESO INDEPENDIENTE
-    (
-        if [ -n "$script" ]; then
-            exec "$script" "$WORKSPACE" "$change" "$batch"
+    # Estructura de directorios para logs
+    local ts=$(date -u +"%Y%m%d_%H%M%S")
+    local log_dir="$WORKSPACE/artifacts/agent-logs/$change/$agent_name/$ts"
+    mkdir -p "$log_dir"
+    
+    local stdout_log="$log_dir/stdout.log"
+    local stderr_log="$log_dir/stderr.log"
+    local pid_file="$AGENT_COMM_DIR/$change/${agent_name}.pid"
+    
+    # 2.1: Ejecución no-bloqueante con nohup + guardar PID
+    log "Launching $agent_name in background (non-blocking)..."
+    
+    nohup bash -c "
+        if [ -n \"$script\" ]; then
+            exec \"$script\" \"$WORKSPACE\" \"$change\" \"$batch\"
         else
-            exec "$WORKSPACE/agents/${agent}.sh" "$WORKSPACE" "$change" "$batch"
+            exec \"$WORKSPACE/agents/${agent}.sh\" \"$WORKSPACE\" \"$change\" \"$batch\"
         fi
-    ) > "$log_file" 2>&1 &
+    " > "$stdout_log" 2>"$stderr_log" &
     
     local pid=$!
+    echo "$pid" > "$pid_file"
     
-    log "PID: $pid - Ejecutando en proceso independiente..."
+    log "Agent $agent_name started with PID: $pid"
+    log "Logs: stdout=$stdout_log, stderr=$stderr_log"
+    log "PID file: $pid_file"
     
-    # Esperar con timeout
-    local timeout_min=$($YQ eval ".phases.$phase.execution.timeout_minutes // 60" "$DAG_FILE" 2>/dev/null || echo "60")
-    local timeout_sec=$((timeout_min * 60))
-    
-    local elapsed=0
-    local interval=5
-    
-    while kill -0 "$pid" 2>/dev/null; do
-        if [ $elapsed -ge $timeout_sec ]; then
-            log_error "Timeout: $phase ($timeout_min min)"
-            kill -9 "$pid" 2>/dev/null
-            return 1
+    # 2.2: Polling del status.json para detectar fin de agente
+    # 2.3: Timeout configurable con AGENT_TIMEOUT_MINUTES
+    if ! wait_agent_completion "$phase" "$change" "$pid_file"; then
+        local exit_code=$?
+        if [ $exit_code -eq 124 ]; then
+            log_error "Timeout: $phase exceeded ${AGENT_TIMEOUT_MINUTES} minutes"
+        else
+            log_error "Agent $phase failed"
         fi
-        sleep $interval
-        elapsed=$((elapsed + interval))
-        echo -ne "\r    Transcurrido: ${elapsed}s / ${timeout_sec}s "
-    done
+        
+        # Actualizar status a failed
+        update_agent_status "$phase" "$change" 1 "Timeout or error"
+        
+        log "Logs: $stdout_log"
+        tail -20 "$stdout_log" 2>/dev/null || true
+        return 1
+    fi
     
-    wait "$pid"
+    # Obtener exit code del proceso
+    wait "$pid" 2>/dev/null
     local exit_code=$?
     
     echo ""
+    
+    # Generar summary simple
+    local summary=""
+    if [ -f "$stdout_log" ]; then
+        summary=$(head -5 "$stdout_log" 2>/dev/null | tr '\n' ' ' | cut -c1-200)
+    fi
+    
+    # 2.4: Actualizar estado del agente al finalizar
+    update_agent_status "$phase" "$change" "$exit_code" "$summary"
     
     if [ $exit_code -eq 0 ]; then
         log_ok "Fase completada: $phase"
@@ -381,8 +573,8 @@ run_phase() {
         return 0
     else
         log_error "Fase falló (exit=$exit_code): $phase"
-        log "Logs: $log_file"
-        tail -20 "$log_file"
+        log "Logs: $stdout_log"
+        tail -20 "$stdout_log" 2>/dev/null || true
         return 1
     fi
 }

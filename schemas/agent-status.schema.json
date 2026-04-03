@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cmx-core.dev/schemas/agent-status.schema.json",
+  "title": "Agent Communication Status",
+  "description": "Estado de comunicación entre agentes del pipeline SDD",
+  "type": "object",
+  "required": ["agent", "change", "status", "started_at"],
+  "properties": {
+    "agent": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Nombre del agente que reporta estado"
+    },
+    "change": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Nombre del change asociado"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["running", "completed", "failed"],
+      "description": "Estado actual del agente"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp de inicio"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Timestamp de completado"
+    },
+    "exit_code": {
+      "type": ["integer", "null"],
+      "description": "Código de salida del proceso"
+    },
+    "summary": {
+      "type": ["string", "null"],
+      "description": "Resumen breve del resultado"
+    },
+    "output_path": {
+      "type": ["string", "null"],
+      "description": "Ruta al artifact generado"
+    }
+  }
+}

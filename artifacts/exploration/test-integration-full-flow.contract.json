@@ -1,0 +1,17 @@
+{
+  "type": "exploration_contract",
+  "version": "1.0.0",
+  "change": "test-integration-full-flow",
+  "agent": "explorer",
+  "pid": 21092,
+  "timestamp": "2026-04-03T13:51:33-06:00",
+  "status": "completed",
+  "output": {
+    "exploration": "/home/cmx/cmx-core/artifacts/exploration/test-integration-full-flow.md",
+    "contract": "/home/cmx/cmx-core/artifacts/exploration/test-integration-full-flow.contract.json"
+  },
+  "schema": {
+    "required": ["type", "version", "change", "agent", "status"],
+    "output_fields": ["exploration", "contract"]
+  }
+}

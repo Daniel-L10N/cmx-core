@@ -1,0 +1,10 @@
+{
+  "agent": "explore",
+  "change": "test-change-2",
+  "status": "completed",
+  "started_at": "2026-04-03T20:03:37Z",
+  "completed_at": "2026-04-03T20:03:39Z",
+  "exit_code": 0,
+  "summary": "=== EXPLORER AGENT (PID: 21652) === Workspace: /home/cmx/cmx-core Change: test-change-2 Explorando estructura... ✓ Exploración completada: /home/cmx/cmx-core/artifacts/exploration/test-change-2.md ",
+  "output_path": null
+}
