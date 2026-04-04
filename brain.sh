@@ -18,6 +18,16 @@ AI_SELECTOR="$PROJECT_ROOT/scripts/ai-selector.sh"
 MEMORY_SAVE="$PROJECT_ROOT/scripts/memory-save.sh"
 BRAIN_ADAPTER="$PROJECT_ROOT/orchestrator/brain-adapter.sh"
 
+# ============================================================================
+# LOGGING CENTRALIZADO (v2.2.0)
+# ============================================================================
+source "$PROJECT_ROOT/lib/logger.sh" 2>/dev/null || true
+source "$PROJECT_ROOT/lib/metrics.sh" 2>/dev/null || true
+source "$PROJECT_ROOT/lib/context-cache.sh" 2>/dev/null || true
+
+# Inicializar context cache
+context_cache_init "$PROJECT_ROOT" "$PROJECT_ROOT/.context-cache" 2>/dev/null || true
+
 # Configs
 REGISTRY_FILE="$PROJECT_ROOT/config/ai-registry.json"
 AUTONOMY_FILE="$PROJECT_ROOT/config/autonomy.yaml"
@@ -39,7 +49,10 @@ PROJECT="cmx-core"
 TASK=""
 CONTEXT=""
 TASK_ID="task-$(date +%s)"
+TASK_START_TIME=$(date +%s)
 
+# Alias de compatibilidad: las funciones log_* del logger.sh reemplazan las locales
+# Si logger.sh no cargó, las funciones locales de abajo sirven como fallback
 log() { echo -e "${BLUE}[BRAIN]${NC} $1"; }
 log_ok() { echo -e "${GREEN}[OK]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
@@ -87,12 +100,21 @@ if [ -z "$TASK" ]; then
     exit 1
 fi
 
-log "Iniciando cerebro para proyecto: $PROJECT"
-log "Tarea: $TASK"
-log "Modo: $MODE"
+# ============================================================================
+# INICIALIZAR LOGGING Y MÉTRICAS (v2.2.0)
+# ============================================================================
+log_init "brain" "$PROJECT_ROOT/logs" 2>/dev/null || true
+metrics_init "$PROJECT" "$PROJECT_ROOT/logs" 2>/dev/null || true
+
+log_info "Iniciando cerebro para proyecto: $PROJECT"
+metrics_task_start "$TASK_ID" "$TASK" "$PROJECT"
+
+log_info "Tarea: $TASK"
+log_info "Modo: $MODE"
 
 # 1. Pre-flight check
-log "Ejecutando check de entorno..."
+log_info "Ejecutando check de entorno..."
+metrics_record "env_check_start" "running" "" "brain"
 CHECK_RESULT=$("$CHECK_ENV" --strict 2>&1) || true
 echo "$CHECK_RESULT" | head -5
 
@@ -101,8 +123,11 @@ CHECK_STATUS=$(echo "$CHECK_RESULT" | jq -r '.status' 2>/dev/null || echo "unkno
 
 if [ "$CHECK_STATUS" = "error" ]; then
     log_error "Check de entorno falló. Abortando."
+    metrics_error "brain" "environment_check_failed" "status=$CHECK_STATUS"
     exit 1
 fi
+
+metrics_record "env_check_end" "$CHECK_STATUS" "" "brain"
 
 # Guardar decisión de entorno
 "$MEMORY_SAVE" "decision" "environment-check" \
@@ -123,15 +148,19 @@ else
     TASK_TYPE="general"
 fi
 
-log "Tipo de tarea detectado: $TASK_TYPE"
+log_info "Tipo de tarea detectado: $TASK_TYPE"
 
 # 3. Seleccionar IA
-log "Seleccionando IA óptima..."
+log_info "Seleccionando IA óptima..."
 SELECTION=$("$AI_SELECTOR" "$TASK_TYPE" "$PROJECT" 2>/dev/null)
 SELECTED_IA=$(echo "$SELECTION" | jq -r '.ia' 2>/dev/null || echo "opencode")
 SELECTION_REASON=$(echo "$SELECTION" | jq -r '.reason' 2>/dev/null || echo "default")
+SELECTED_COST=$(echo "$SELECTION" | jq -r '.cost_level // 0' 2>/dev/null || echo "0")
 
 log_ok "IA seleccionada: $SELECTED_IA"
+
+# Registrar métrica de selección de IA
+metrics_ia_selection "$SELECTED_IA" "$TASK_TYPE" "$SELECTED_COST" "$SELECTION_REASON"
 
 # Guardar decisión de selección
 "$MEMORY_SAVE" "decision" "ia-selection" \
@@ -142,22 +171,34 @@ log_ok "IA seleccionada: $SELECTED_IA"
 HITL_GATES=$(jq -r ".levels.\"$MODE\".hitl_gates // [] | join(\", \")" "$AUTONOMY_FILE" 2>/dev/null || echo "")
 log "HITL gates para modo '$MODE': $HITL_GATES"
 
-# 5. Inyector de contexto de 3 capas
-log "Construyendo contexto de 3 capas..."
+# 5. Inyector de contexto de 3 capas (con cache — v2.2.0)
+log_info "Construyendo contexto de 3 capas..."
 
-# Capa 1: Base (genérica)
-CONTEXT_LAYER_1=$(cat "$PROMPT_BASE" 2>/dev/null || echo "# Sistema Base\nEres cmx-core.")
-
-# Capa 2: Proyecto (específica)
-CONTEXT_LAYER_2=""
-if [ -f "$CONTEXT_FILE" ]; then
-    CONTEXT_LAYER_2=$(cat "$CONTEXT_FILE")
-fi
-if [ -f "$AGENT_FILE" ]; then
-    CONTEXT_LAYER_2="$CONTEXT_LAYER_2\n\n$(cat "$AGENT_FILE")"
+# Capa 1: Base (genérica) — desde cache
+if type context_cache_get_layer1 >/dev/null 2>&1; then
+    CONTEXT_LAYER_1=$(context_cache_get_layer1)
+else
+    CONTEXT_LAYER_1=$(cat "$PROMPT_BASE" 2>/dev/null || echo "# Sistema Base\nEres cmx-core.")
 fi
 
-# Capa 3: Tarea (dinámica)
+# Capa 2: Proyecto (específica) — desde cache
+if type context_cache_get_layer2 >/dev/null 2>&1; then
+    CONTEXT_LAYER_2=$(context_cache_get_layer2)
+else
+    CONTEXT_LAYER_2=""
+    if [ -f "$CONTEXT_FILE" ]; then
+        CONTEXT_LAYER_2=$(cat "$CONTEXT_FILE")
+    fi
+    if [ -f "$AGENT_FILE" ]; then
+        CONTEXT_LAYER_2="$CONTEXT_LAYER_2
+
+---
+
+$(cat "$AGENT_FILE")"
+    fi
+fi
+
+# Capa 3: Tarea (dinámica — no cacheable)
 CONTEXT_LAYER_3="## Tarea Actual
 Tarea: $TASK
 Tipo: $TASK_TYPE
@@ -181,8 +222,64 @@ echo "$FULL_CONTEXT" > "$PROJECT_ROOT/artifacts/context-${TASK_ID}.txt"
 
 log_ok "Contexto preparado"
 
-# 6. Ejecutar la tarea con la IA seleccionada
-log "Ejecutando tarea con $SELECTED_IA..."
+# ============================================================================
+# TIMEOUTS POR IA (v2.1.1 — Security & Reliability Hardening)
+# ============================================================================
+# Cada IA tiene un timeout específico basado en su velocidad esperada.
+# Si el comando `timeout` no está disponible, se usa un fallback con background PID.
+
+TIMEOUT_OPENCODE="${TIMEOUT_OPENCODE:-300}"    # 5 min
+TIMEOUT_GEMINI="${TIMEOUT_GEMINI:-180}"        # 3 min
+TIMEOUT_OPENROUTER="${TIMEOUT_OPENROUTER:-120}" # 2 min
+
+# Wrapper de ejecución con timeout + graceful shutdown
+run_with_timeout() {
+    local timeout_sec="$1"
+    shift
+    local cmd="$@"
+
+    # Verificar si el comando `timeout` está disponible
+    if command -v timeout >/dev/null 2>&1; then
+        # timeout command disponible: usa SIGTERM + SIGKILL
+        timeout --signal=TERM --kill-after=10 "$timeout_sec" bash -c "$cmd" 2>&1
+        return $?
+    else
+        # Fallback: implementación manual con background PID
+        local temp_output
+        temp_output=$(mktemp)
+
+        bash -c "$cmd" > "$temp_output" 2>&1 &
+        local pid=$!
+        local elapsed=0
+
+        while kill -0 "$pid" 2>/dev/null; do
+            sleep 1
+            elapsed=$((elapsed + 1))
+
+            if [ "$elapsed" -ge "$timeout_sec" ]; then
+                log_warn "Timeout ($timeout_sec s) — enviando SIGTERM a PID $pid"
+                kill -TERM "$pid" 2>/dev/null || true
+                sleep 5
+                if kill -0 "$pid" 2>/dev/null; then
+                    log_error "SIGTERM ignorado — enviando SIGKILL"
+                    kill -9 "$pid" 2>/dev/null || true
+                fi
+                cat "$temp_output"
+                rm -f "$temp_output"
+                return 124  # Timeout exit code
+            fi
+        done
+
+        wait "$pid" 2>/dev/null
+        local exit_code=$?
+        cat "$temp_output"
+        rm -f "$temp_output"
+        return $exit_code
+    fi
+}
+
+# 6. Ejecutar la tarea con la IA seleccionada (con timeouts — v2.1.1)
+log "Ejecutando tarea con $SELECTED_IA (timeout: ${TIMEOUT_OPENCODE}s)..."
 
 # Determinar si la tarea requiere pipeline SDD
 # Si es "spec-driven" o el modo es autonomous, usar brain-adapter
@@ -197,17 +294,47 @@ case "$SELECTED_IA" in
             INTENT="auto"
             log "Tarea detectada como SDD - usando brain-adapter"
         else
-            # Usar opencode directamente
-            RESPONSE=$(opencode run "$TASK" 2>&1) || true
+            # Usar opencode directamente CON TIMEOUT
+            log "Ejecutando opencode con timeout de ${TIMEOUT_OPENCODE}s..."
+            RESPONSE=$(run_with_timeout "$TIMEOUT_OPENCODE" "opencode run '$TASK'" 2>&1) || {
+                exit_code=$?
+                if [ $exit_code -eq 124 ]; then
+                    log_error "TIMEOUT: opencode excedió ${TIMEOUT_OPENCODE}s"
+                    RESPONSE="ERROR: Timeout — opencode no respondió en ${TIMEOUT_OPENCODE}s"
+                else
+                    log_warn "opencode falló con exit code $exit_code"
+                    RESPONSE="ERROR: opencode falló (exit code: $exit_code)"
+                fi
+            }
         fi
         ;;
     gemini)
-        # Usar gemini CLI
-        RESPONSE=$(gemini "$TASK" 2>&1) || true
+        # Usar gemini CLI CON TIMEOUT
+        log "Ejecutando gemini con timeout de ${TIMEOUT_GEMINI}s..."
+        RESPONSE=$(run_with_timeout "$TIMEOUT_GEMINI" "gemini -p '$TASK'" 2>&1) || {
+            exit_code=$?
+            if [ $exit_code -eq 124 ]; then
+                log_error "TIMEOUT: gemini excedió ${TIMEOUT_GEMINI}s"
+                RESPONSE="ERROR: Timeout — gemini no respondió en ${TIMEOUT_GEMINI}s"
+            else
+                log_warn "gemini falló con exit code $exit_code"
+                RESPONSE="ERROR: gemini falló (exit code: $exit_code)"
+            fi
+        }
         ;;
     openrouter)
-        # Usar openrouter (asumiendo agente configurado)
-        RESPONSE=$(openrouter "$TASK" 2>&1) || true
+        # Usar openrouter CON TIMEOUT
+        log "Ejecutando openrouter con timeout de ${TIMEOUT_OPENROUTER}s..."
+        RESPONSE=$(run_with_timeout "$TIMEOUT_OPENROUTER" "openrouter '$TASK'" 2>&1) || {
+            exit_code=$?
+            if [ $exit_code -eq 124 ]; then
+                log_error "TIMEOUT: openrouter excedió ${TIMEOUT_OPENROUTER}s"
+                RESPONSE="ERROR: Timeout — openrouter no respondió en ${TIMEOUT_OPENROUTER}s"
+            else
+                log_warn "openrouter falló con exit code $exit_code"
+                RESPONSE="ERROR: openrouter falló (exit code: $exit_code)"
+            fi
+        }
         ;;
     *)
         RESPONSE="IA $SELECTED_IA no implementada aún"
@@ -237,8 +364,22 @@ fi
     "Tarea '$TASK' ejecutada con $SELECTED_IA. Respuesta: ${RESPONSE:0:200}..." \
     "$PROJECT" "brain" "$TASK_ID" "execution"
 
-# 8. Output final
-log_ok "Tarea completada"
+# 8. Calcular duración y registrar métricas finales
+TASK_END_TIME=$(date +%s)
+TASK_DURATION=$((TASK_END_TIME - TASK_START_TIME))
+
+# Determinar status para métricas
+if echo "$RESPONSE" | grep -qi "ERROR\|TIMEOUT\|failed"; then
+    TASK_STATUS="error"
+else
+    TASK_STATUS="success"
+fi
+
+metrics_task_end "$TASK_ID" "$TASK_STATUS" "${TASK_DURATION}s" "$SELECTED_IA"
+metrics_record "task_total_duration" "${TASK_DURATION}s" "type=$TASK_TYPE,status=$TASK_STATUS" "brain"
+
+# 9. Output final
+log_ok "Tarea completada en ${TASK_DURATION}s"
 
 echo ""
 echo "========================================="

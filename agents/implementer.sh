@@ -1,6 +1,6 @@
 #!/bin/bash
 # Cognitive Stack v2 — Agent: Implementer
-# Implementa un batch de tareas usando OpenCode CLI
+# Implementa un batch de tareas usando AI Selector (v2.2.0)
 # Input: artifacts/tasks/{CHANGE}.json
 # Output: artifacts/implementation/{CHANGE}_batch_{BATCH}.json
 
@@ -9,6 +9,16 @@ set -e
 WORKSPACE="${WORKSPACE:-$HOME/cmx-core}"
 CHANGE="${1}"
 BATCH="${2:-1}"
+
+# ============================================================================
+# AI SELECTOR INTEGRATION (v2.2.0)
+# ============================================================================
+AGENT_AI_LIB="$WORKSPACE/lib/agent-ai.sh"
+if [ -f "$AGENT_AI_LIB" ]; then
+    source "$AGENT_AI_LIB"
+    agent_ai_init "$WORKSPACE" "$CHANGE"
+    agent_ai_select "coding"
+fi
 
 # ============================================================
 # VALIDACIONES
@@ -205,58 +215,62 @@ Al terminar de implementar TODAS las tareas del batch, responde ÚNICAMENTE con 
 PROMPT_EOF
 
 # ============================================================
-# LANZAR OPENCOD EN BACKGROUND
+# LANZAR IA SELECCIONADA (v2.2.0 — AI Selector integration)
 # ============================================================
 
-log "Lanzando OpenCode para implementar batch $BATCH..."
-log "Timeout extendido: SIGINT @ 8min | SIGKILL @ 10min"
+SELECTED_IA="${AGENT_AI_SELECTED_IA:-opencode}"
+log "Lanzando $SELECTED_IA para implementar batch $BATCH..."
+log "IA: $SELECTED_IA | Modelo: ${AGENT_AI_MODEL:-default} | Cost: ${AGENT_AI_COST_LEVEL:-?}"
 
 TEMP_OUTPUT=$(mktemp)
 
-nohup opencode run "$(cat "$TEMP_PROMPT")" > "$TEMP_OUTPUT" 2>&1 &
+# Usar agent_ai_exec si está disponible, sino fallback al método anterior
+if type agent_ai_exec >/dev/null 2>&1; then
+    agent_ai_exec "coding" "$(cat "$TEMP_PROMPT")" > "$TEMP_OUTPUT" 2>&1 || {
+        exit_code=$?
+        if [ $exit_code -eq 124 ]; then
+            log_error "⏰ TIMEOUT: $SELECTED_IA excedió el límite"
+            mark_failed "Timeout"
+            rm -f "$TEMP_OUTPUT" "$TEMP_PROMPT"
+            exit 1
+        fi
+        log_warn "$SELECTED_IA falló con exit code $exit_code"
+    }
+else
+    # Fallback: método original con nohup + timeout manual
+    nohup opencode run "$(cat "$TEMP_PROMPT")" > "$TEMP_OUTPUT" 2>&1 &
+    OPENCOD_PID=$!
+    log "OpenCode PID: $OPENCOD_PID"
+    echo $OPENCOD_PID > "${LOG_DIR}/implementer_opencode.pid"
+    mark_started "$OPENCOD_PID"
 
-OPENCOD_PID=$!
-log "OpenCode PID: $OPENCOD_PID"
-echo $OPENCOD_PID > "${LOG_DIR}/implementer_opencode.pid"
-mark_started "$OPENCOD_PID"
-rm -f "$TEMP_PROMPT"
+    TIMEOUT_SOFT=480  # 8 minutos
+    TIMEOUT_HARD=600  # 10 minutos
 
-# ============================================================
-# TIMEOUT DUAL EXTENDIDO: SIGINT (8min) -> SIGKILL (10min)
-# ============================================================
-
-TIMEOUT_SOFT=480  # 8 minutos
-TIMEOUT_HARD=600  # 10 minutos
-
-log "Timeout soft: ${TIMEOUT_SOFT}s | Timeout hard: ${TIMEOUT_HARD}s"
-
-ELAPSED=0
-while kill -0 $OPENCOD_PID 2>/dev/null; do
-    sleep 5
-    ELAPSED=$((ELAPSED + 5))
-    
-    # Timeout soft a los 8 minutos
-    if [ $ELAPSED -eq $TIMEOUT_SOFT ]; then
-        log "⏰ Timeout soft (8min) - enviando SIGINT"
-        kill -INT $OPENCOD_PID 2>/dev/null
+    ELAPSED=0
+    while kill -0 $OPENCOD_PID 2>/dev/null; do
         sleep 5
-    fi
-    
-    # Timeout hard a los 10 minutos
-    if [ $ELAPSED -ge $TIMEOUT_HARD ]; then
-        log_error "⏰ Timeout hard (10min) - forzando SIGKILL"
-        kill -9 $OPENCOD_PID 2>/dev/null
-        break
-    fi
-    
-    # Log cada 30 segundos
-    if [ $((ELAPSED % 30)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
-        log "Ejecutando... ${ELAPSED}s / ${TIMEOUT_HARD}s"
-    fi
-done
+        ELAPSED=$((ELAPSED + 5))
+        if [ $ELAPSED -eq $TIMEOUT_SOFT ]; then
+            log "⏰ Timeout soft (8min) - enviando SIGINT"
+            kill -INT $OPENCOD_PID 2>/dev/null
+            sleep 5
+        fi
+        if [ $ELAPSED -ge $TIMEOUT_HARD ]; then
+            log_error "⏰ Timeout hard (10min) - forzando SIGKILL"
+            kill -9 $OPENCOD_PID 2>/dev/null
+            break
+        fi
+        if [ $((ELAPSED % 30)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
+            log "Ejecutando... ${ELAPSED}s / ${TIMEOUT_HARD}s"
+        fi
+    done
 
-wait $OPENCOD_PID 2>/dev/null || true
-rm -f "${LOG_DIR}/implementer_opencode.pid"
+    wait $OPENCOD_PID 2>/dev/null || true
+    rm -f "${LOG_DIR}/implementer_opencode.pid"
+fi
+
+rm -f "$TEMP_PROMPT"
 
 # ============================================================
 # PROCESAR RESULTADO

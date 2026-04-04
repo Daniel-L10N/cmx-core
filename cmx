@@ -16,6 +16,7 @@ MEMORY_QUERY="$PROJECT_ROOT/scripts/memory-query.sh"
 MEMORY_INIT="$PROJECT_ROOT/scripts/cmx-memories-init.sh"
 BACKUP_SCRIPT="$PROJECT_ROOT/scripts/backup-memories.sh"
 RESTORE_SCRIPT="$PROJECT_ROOT/scripts/restore-memories.sh"
+CLEANUP_SCRIPT="$PROJECT_ROOT/scripts/cleanup-project.sh"
 
 # Colores
 RED='\033[0;31m'
@@ -85,7 +86,16 @@ case "$COMMAND" in
         while [[ $# -gt 0 ]]; do
             case $1 in
                 --mode)
-                    MODE="$2"
+                    # Validar que el modo sea válido
+                    case "$2" in
+                        manual|hybrid|autonomous)
+                            MODE="$2"
+                            ;;
+                        *)
+                            echo "Error: Modo inválido '$2'. Usos válidos: manual, hybrid, autonomous"
+                            exit 1
+                            ;;
+                    esac
                     shift 2
                     ;;
                 --project)
@@ -174,7 +184,11 @@ case "$COMMAND" in
             echo "Uso: cmx cleanup <proyecto>"
             exit 1
         fi
-        "$CLEANUP" "$PROJECT"
+        if [ ! -f "$CLEANUP_SCRIPT" ]; then
+            echo "Error: Script de cleanup no encontrado: $CLEANUP_SCRIPT"
+            exit 1
+        fi
+        "$CLEANUP_SCRIPT" "$PROJECT"
         ;;
     
     init)

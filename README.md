@@ -1,569 +1,445 @@
-# CMX-CORE - Sistema de Control Modular MX
+# CMX-CORE — Sistema Autónomo Multi-Agente
 
-> **v2.1.0** | Pipeline de desarrollo con Agentes de IA | Construye aplicaciones completas usando agentes especializados con supervisión humana.
+> **v2.3.0** | Orquestación de IA con memoria, pipelines SDD y selección inteligente de modelos | 138 tests automatizados
+
+[![Test Suite](https://github.com/Daniel-L10N/cmx-core/actions/workflows/test.yml/badge.svg)](https://github.com/Daniel-L10N/cmx-core/actions/workflows/test.yml)
+![Bash](https://img.shields.io/badge/Bash-4.0%2B-blue)
+![Python](https://img.shields.io/badge/Python-3.10%2B-green)
+![Tests](https://img.shields.io/badge/Tests-138-brightgreen)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ---
 
 ## ¿Qué es CMX-CORE?
 
-Es un **sistema de orquestación multi-agente** que te permite construir software usando IA de forma estructurada:
+Un **sistema de orquestación multi-agente** que construye software usando IA de forma estructurada, con memoria persistente, selección inteligente de modelos y pipelines automatizados.
 
-- 🔍 **Explora** ideas y requerimientos
-- 🧠 **Cerebro autónomo** - sistema con memoria y selección inteligente de IA
-- 📋 **Propone** soluciones técnicas
-- 📝 **Especifica** requisitos exactos
-- 🎨 **Diseña** la arquitectura
-- ⚒️ **Implementa** en batches controlado
-- ✅ **Verifica** cada paso
-- 📦 **Archiva** el resultado
-
----
-
-## Dos Modos de Uso
-
-### Modo 1: Pipeline SDD Tradicional
-
-El pipeline original de cmx-core para desarrollo estructurado:
-
-```bash
-cd cmx-core
-
-# 1. Inicializar el workspace
-./run.sh init
-
-# 2. Ejecutar pipeline completo (con HITL)
-./run.sh run mi-feature "crear una app de tareas con React"
-
-# O ejecutar paso a paso:
-./run.sh explore "autenticación JWT"
-./run.sh propose
-./run.sh spec
-./run.sh design
-./run.sh tasks
-./run.sh apply 1
-./run.sh verify 1
-./run.sh archive
-```
-
-### Modo 2: Sistema Autónomo (NUEVO)
-
-El nuevo sistema autónomo con cerebro propio:
-
-```bash
-cd cmx-core
-
-# Inicializar memoria
-./cmx init
-
-# Ver estado
-./cmx status
-
-# Listar IAs disponibles
-./cmx list-ias
-
-# Ejecutar tarea con el cerebro
-./cmx task "crear una API REST" --mode autonomous
-
-# Ver decisiones del cerebro
-./cmx memories cmx-core decision
-
-# Cleanup post-proyecto (síntesis automática)
-./cmx cleanup mi-proyecto
-```
+- 🧠 **Cerebro autónomo** — Analiza tareas, selecciona la IA óptima por costo/capacidad
+- 📋 **Pipeline SDD** — Spec → Design → Tasks → Implementation → Verification
+- 💾 **Memoria persistente** — SQLite + FTS5 con búsqueda full-text
+- 🔄 **Selección inteligente** — Elige automáticamente entre OpenCode, Gemini, OpenRouter
+- 📊 **Observabilidad** — Logging centralizado, métricas, monitoreo en tiempo real
+- 🔒 **Seguro** — SQL injection prevention, file locking, timeouts, validación de inputs
+- 🔌 **Extensible** — Sistema de plugins con hooks
 
 ---
 
-## Requisitos Previos
+## Instalación
 
-### Sistema Operativo
-- Linux (Ubuntu 22.04+, Debian 11+, Fedora 38+)
-- macOS (con Bash 4+)
-- WSL2 (Windows Subsystem for Linux)
+### Requisitos
 
-### Dependencias
-
-| Paquete | Versión mínima | Para qué sirve |
-|---------|---------------|----------------|
+| Paquete | Versión | Para qué |
+|---------|---------|----------|
 | `bash` | 4.0+ | Shell del sistema |
 | `jq` | 1.6+ | Procesamiento JSON |
+| `sqlite3` | 3.35+ | Base de datos + FTS5 |
+| `python3` | 3.10+ | AI Selector + tests |
 | `git` | 2.0+ | Control de versiones |
-| `opencode` | latest | Motor de ejecución de agentes IA |
+| `opencode` | latest | Motor de ejecución IA (opcional) |
 
-### Instalar dependencias
-
-```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt install -y bash jq git curl
-
-# Fedora/RHEL
-sudo dnf install -y bash jq git curl
-
-# macOS
-brew install jq git curl
-```
-
-### Instalar OpenCode
-
-```bash
-# Instalación oficial
-curl -sSL https://opencode.ai/install.sh | sh
-
-# Verificar instalación
-opencode --version
-```
-
----
-
-## Instalación en 3 Pasos
-
-### 1. Clonar el repositorio
+### Paso 1: Clonar
 
 ```bash
 git clone https://github.com/Daniel-L10N/cmx-core.git
 cd cmx-core
 ```
 
-### 2. Verificar estructura
+### Paso 2: Instalar dependencias
 
 ```bash
-ls -la
-# Debe mostrar:
-# agents/   dag/   orchestrator/   schemas/   validators/
-# run.sh    README.md   MANUAL.md
+# Ubuntu/Debian
+sudo apt update && sudo apt install -y bash jq sqlite3 python3 python3-pip git
+
+# Fedora/RHEL
+sudo dnf install -y bash jq sqlite3 python3 python3-pip git
+
+# macOS
+brew install bash jq sqlite3 python3 git
+pip3 install pytest
 ```
 
-### 3. ¡Listo! 🚀
+### Paso 3: Verificar
 
 ```bash
-# Ver ayuda
-./run.sh help
+# Ejecutar tests (deben pasar 119/120+)
+bash tests/test-security.sh
+
+# Tests Python (deben pasar 19/19)
+python3 -m pytest tests/test_ai_selector.py -v
+```
+
+### Paso 4: Inicializar
+
+```bash
+# Inicializar memoria SQLite
+./cmx init
 
 # Ver estado
-./run.sh status
+./cmx status
+
+# Verificar entorno
+./cmx env-check
 ```
+
+### Paso 5 (Opcional): Configurar IAs
+
+Copia el archivo de ejemplo y agrega tus API keys:
+
+```bash
+cp .env.example .env
+nano .env  # Agrega tus API keys
+```
+
+El sistema funciona con **opencode** instalado. Gemini CLI y OpenRouter son opcionales (fallback automático).
 
 ---
 
 ## Uso Rápido
 
-### Flujo Completo de Desarrollo
+### Nivel 1: CLI (tareas simples)
 
 ```bash
-cd cmx-core
+# Ejecutar una tarea
+./cmx task "crear una función que valide emails"
 
-# 1. Inicializar el workspace
-./run.sh init
+# Con modo autónomo (sin preguntas)
+./cmx task "crear endpoint de health check" --mode autonomous
 
-# 2. Ejecutar pipeline completo (con HITL)
-./run.sh run mi-feature "crear una app de tareas con React"
+# Con proyecto y contexto
+./cmx task "crear componente de tabla" \
+    --project mi-app \
+    --context "Usar React + TypeScript + Tailwind"
 
-# O ejecutar paso a paso:
-./run.sh explore "autenticación JWT"
-./run.sh propose
-./run.sh spec
-./run.sh design
-./run.sh tasks
-./run.sh apply 1
-./run.sh verify 1
-./run.sh archive
+# Consultar memoria
+./cmx memories mi-app decision           # Ver decisiones
+./cmx search "autenticación" mi-app      # Búsqueda full-text
+
+# Administración
+./cmx status                             # Estado del sistema
+./cmx list-ias                           # IAs disponibles
+./cmx env-check                          # Verificar entorno
+./cmx backup                             # Backup de la DB
+./cmx cleanup mi-app                     # Cleanup post-proyecto
 ```
 
-### Comandos Principales
+### Nivel 2: Cerebro Directo
+
+```bash
+# Ejecutar con control total
+./brain.sh --task "implementar sistema de login JWT" \
+    --mode hybrid \
+    --project api-backend
+
+# Con contexto adicional
+./brain.sh --task "analizar vulnerabilidades" \
+    --context "Revisar auth, SQL injection, XSS" \
+    --mode autonomous
+
+# Ver logs en tiempo real
+tail -f logs/cmx-$(date +%Y%m%d).log
+
+# Ver métricas
+source lib/metrics.sh && metrics_init "mi-app" && metrics_report
+```
+
+### Nivel 3: Pipeline SDD (features complejas)
+
+```bash
+# Pipeline autónomo completo
+./brain.sh --task "implementar sistema de autenticación JWT" \
+    --mode autonomous --project api-backend
+
+# Monitorear el pipeline
+./orchestrator/monitor.sh --once    # Estado actual
+./orchestrator/monitor.sh           # Monitoreo continuo
+
+# Parar todo
+./orchestrator/stop-all.sh
+```
+
+---
+
+## Guía de Uso Completa
+
+### Comandos del CLI `cmx`
 
 | Comando | Descripción |
 |---------|-------------|
-| `./run.sh init` | Inicializar workspace |
-| `./run.sh status` | Ver estado actual |
-| `./run.sh run "nombre" "descripción"` | Ejecutar pipeline completo |
-| `./run.sh explore "tema"` | Investigar un tema |
-| `./run.sh validate <tipo> <archivo>` | Validar schema |
-| `./run.sh reset` | Resetear pipeline |
-
----
-
-## Arquitectura del Sistema
-
-### Sistema Autónomo (Modo Nuevo)
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    CMX-CORE SISTEMA AUTÓNOMO                        │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌──────────────┐     ┌──────────────┐     ┌──────────────────┐   │
-│  │   Usuario    │────▶│   brain.sh   │────▶│ ai-selector.sh   │   │
-│  │  (cualquier  │     │   (Cerebro)  │     │ (Selecciona IA) │   │
-│  │    IA)       │     └──────────────┘     └────────┬─────────┘  │
-│  └──────────────┘                                    │            │
-│                                                      ▼            │
-│  ┌──────────────────────────────────────────────────────────────┐ │
-│  │              INYECTOR DE CONTEXTO (3 CAPAS)                  │ │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │ │
-│  │  │  BASE       │→ │  PROYECTO   │→ │  TAREA (DAG)         │ │ │
-│  │  │  prompts/   │  │  CONTEXT.md │  │  pipeline.sh         │ │ │
-│  │  │  base.txt   │  │  AGENT.md   │  │  pasa al agente     │ │ │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘ │ │
-│  └──────────────────────────────────────────────────────────────┘ │
-│                                                      │            │
-│  ┌──────────────┐     ┌──────────────┐     ┌──────────────────┐   │
-│  │  Agentes     │◀────│  pipeline.sh │◀────│  agentes/         │   │
-│  │  Existentes  │     │  (DAG exec)  │     │  (explorer, etc) │   │
-│  └──────────────┘     └──────────────┘     └──────────────────┘   │
-│                              │                                    │
-│                              ▼                                    │
-│  ┌──────────────────────────────────────────────────────────────┐ │
-│  │                    CMX-MEMORIES                              │ │
-│  │  ┌─────────────────────┐  ┌─────────────────────────────┐     │ │
-│  │  │  Estado (decisiones)│  │  Síntesis (Lecciones)       │     │ │
-│  │  │  project+agent+phase│  │  type: synthesis            │     │ │
-│  │  │  durante proyecto  │  │  generado por IA            │     │ │
-│  │  └─────────────────────┘  └─────────────────────────────┘     │ │
-│  └──────────────────────────────────────────────────────────────┘ │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### Componentes del Sistema Autónomo
-
-| Componente | Archivo | Descripción |
-|-----------|---------|-------------|
-| Cerebro | `brain.sh` | Orquestador central - analiza tareas, selecciona IA, delega |
-| Adapter | `brain-adapter.sh` | Conecta brain con pipeline SDD - traduce decisiones en ejecución |
-| Selector IA | `ai-selector.sh` | Selecciona la mejor IA basada en tipo de tarea |
-| Memoria | `memories.db` | Base de datos de decisiones (SQLite + FTS5 backend) |
-| Pre-flight | `check-environment.sh` | Valida API keys antes de ejecutar |
-| CLI | `cmx` | Punto de entrada principal |
-| Cleanup | `cleanup-project.sh` | Síntesis automática post-proyecto |
-
-### IAs Registradas (v2.1.0)
-
-| IA | Estado | Cost Level | Modelos | Best For |
-|----|--------|------------|----------|-----------|
-| opencode | ✅ available | 2 (gratis) | big-pickle, gpt-5-nano, etc. | implementation, coding |
-| gemini | ✅ available | 1 (gratis) | gemini-2.0-flash | trivial tasks, analysis |
-| openrouter | ✅ available | 1 (gratis) | deepseek, llama3.2, gemma | synthesis, fallback |
-| ollama | ⚠️ offline | 5 (local) | llama3.2 | offline, privacy |
-
----
-
-### Pipeline SDD (Modo Tradicional)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    CMX-CORE PIPELINE                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────┐    ┌─────────┐    ┌─────────┐                │
-│  │ EXPLORE │───▶│ PROPOSE │───▶│  SPEC   │                │
-│  └─────────┘    └─────────┘    └─────────┘                │
-│       │              │              │                       │
-│       │              │              │                       │
-│       ▼              ▼              ▼                       │
-│  ┌─────────────────────────────────────────┐               │
-│  │              HITL GATES                 │               │
-│  │   (Aprobación humana requerida)        │               │
-│  └─────────────────────────────────────────┘               │
-│                       │                                      │
-│       ┌───────────────┴───────────────┐                     │
-│       ▼                               ▼                      │
-│  ┌─────────┐                   ┌─────────┐                  │
-│  │  DESIGN │                   │  TASKS  │                  │
-│  └─────────┘                   └─────────┘                  │
-│       │                               │                       │
-│       └───────────────┬───────────────┘                     │
-│                       ▼                                      │
-│              ┌─────────────┐                                │
-│              │    APPLY    │                                │
-│              │  (batches)  │                                │
-│              └─────────────┘                                │
-│                       │                                      │
-│                       ▼                                      │
-│              ┌─────────────┐                                │
-│              │   VERIFY    │                                │
-│              └─────────────┘                                │
-│                       │                                      │
-│                       ▼                                      │
-│              ┌─────────────┐                                │
-│              │   ARCHIVE   │                                │
-│              └─────────────┘                                │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Agentes Disponibles
-
-| Agente | Función |
-|--------|---------|
-| `explorer.sh` | Investiga el tema y contexto |
-| `proposer.sh` | Genera propuesta técnica |
-| `spec-writer.sh` | Escribe especificación formal |
-| `designer.sh` | Diseña arquitectura UI/UX |
-| `task-planner.sh` | Planifica tareas de implementación |
-| `implementer.sh` | Implementa código |
-| `verifier.sh` | Verifica implementación |
-| `archiver.sh` | Archiva y cierra el cambio |
-
----
-
-## Estructura de Archivos
-
-```
-cmx-core/
-├── agents/              # Scripts de agentes SDD
-│   ├── explorer.sh
-│   ├── proposer.sh
-│   └── ...
-├── orchestrator/        # Motor de orquestación
-│   ├── pipeline.sh
-│   ├── monitor.sh
-│   ├── brain-adapter.sh     # ← NUEVO: conecta brain → pipeline
-│   └── state.json
-├── schemas/             # JSON Schemas de validación
-├── dag/                 # Definición del DAG
-├── validators/          # Validadores
-├── config/               # Configuración del Sistema Autónomo
-│   ├── ai-registry.json # Registro de IAs disponibles
-│   ├── autonomy.yaml    # Niveles de autonomía
-│   └── prompts/
-│       └── base.txt     # Capa base de prompts
-├── scripts/             # Scripts del Sistema Autónomo
-│   ├── brain.sh         # Cerebro principal
-│   ├── ai-selector.sh   # Selector de IA
-│   ├── memory-save.sh   # Guardar decisiones (SQLite)
-│   ├── memory-query.sh  # Consultar decisiones (FTS5)
-│   ├── cmx-memories-init.sh  # Inicializar DB SQLite
-│   ├── migrate-to-sqlite.sh  # Migración JSON→SQLite
-│   ├── backup-memories.sh    # Backup DB
-│   ├── restore-memories.sh   # Restore DB
-│   ├── check-environment.sh  # Pre-flight check
-│   └── cleanup-project.sh    # Síntesis automática
-├── brain.sh             # Punto de entrada del cerebro
-├── cmx                  # CLI principal del sistema autónomo
-├── memories.db          # ← NUEVO: Base SQLite + FTS5
-├── memories.json        # Original (backup)
-├── artifacts/           # Artefactos generados
-├── backups/             # ← NUEVO: Backups de DB
-├── run.sh              # Punto de entrada SDD tradicional
-├── README.md
-└── MANUAL.md
-```
-
----
-
-## Sistema Autónomo - Guía Completa
-
-### Primeros Pasos
-
-```bash
-# 1. Navegar al proyecto
-cd cmx-core
-
-# 2. Inicializar memoria cmx-memories
-./cmx init
-
-# 3. Ver estado del sistema
-./cmx status
-
-# 4. Listar IAs disponibles
-./cmx list-ias
-```
-
-### Comandos del CLI cmx
-
-```bash
-# Ejecutar una tarea con el cerebro
-./cmx task "crear una API REST con autenticación JWT" --mode autonomous
-./cmx task "analizar el código existente" --mode hybrid
-
-# Ver estado del sistema
-./cmx status
-
-# Listar IAs disponibles
-./cmx list-ias
-
-# Verificar entorno (API keys)
-./cmx env-check
-
-# Consultar memorias/decisiones
-./cmx memories cmx-core decision
-./cmx memories cmx-core synthesis
-
-# Cleanup post-proyecto (síntesis automática)
-./cmx cleanup mi-proyecto
-```
-
-### Opciones de tarea
-
-| Opción | Descripción | Ejemplo |
-|--------|-------------|---------|
-| `--task` | Descripción de la tarea | `"crear una API REST"` |
-| `--mode` | Nivel de autonomía | `manual`, `hybrid`, `autonomous` |
-| `--project` | Nombre del proyecto | `cmx-core` |
-| `--context` | Contexto adicional | `"usar TypeScript"` |
+| `cmx task "..."` | Ejecutar tarea con el cerebro |
+| `cmx task "..." --mode autonomous` | Sin aprobación humana |
+| `cmx task "..." --project nombre` | Proyecto específico |
+| `cmx memories [proyecto] [tipo]` | Consultar memorias |
+| `cmx search "query" [proyecto]` | Búsqueda full-text (FTS5) |
+| `cmx status` | Estado del sistema |
+| `cmx list-ias` | IAs registradas y su estado |
+| `cmx env-check` | Verificar API keys y entorno |
+| `cmx init` | Inicializar memoria SQLite |
+| `cmx backup` | Crear backup de la DB |
+| `cmx restore <archivo>` | Restaurar desde backup |
+| `cmx cleanup <proyecto>` | Síntesis + cleanup post-proyecto |
+| `cmx help` | Ayuda completa |
 
 ### Niveles de Autonomía
 
 | Nivel | Descripción | Aprobaciones |
 |-------|-------------|--------------|
-| `manual` | Cada paso requiere aprobación humana | Todas las fases |
-| `hybrid` | Solo decisiones críticas requieren aprobación | spec, design |
-| `autonomous` | Opera de forma autónoma, reporta al final | Ninguna |
+| `manual` | Cada paso requiere aprobación | Todas las fases |
+| `hybrid` | Solo decisiones críticas | spec, design |
+| `autonomous` | Opera solo, reporta al final | Ninguna |
 
-### Variables de Entorno Requeridas
-
-Para que el sistema funcione completamente, configura estas variables:
+### Observabilidad
 
 ```bash
-# API Keys (agregar a ~/.bashrc o .env)
-export OPENCOD_API_KEY="tu-api-key"
-export GEMINI_API_KEY="tu-api-key"
-export OPENROUTER_API_KEY="tu-api-key"
+# Logs (JSON lines, parseable)
+tail -f logs/cmx-$(date +%Y%m%d).log
 
-# Verificar que están configuradas
-./cmx env-check
+# Modo DEBUG
+CMX_LOG_LEVEL=0 ./brain.sh --task "..."
+
+# Métricas del día
+source lib/metrics.sh
+metrics_init "cmx-core"
+metrics_report              # Resumen formateado
+metrics_report_json         # Output JSON
+
+# Cache de contexto
+source lib/context-cache.sh
+context_cache_init "/path/to/cmx-core"
+context_cache_stats         # Stats del cache
+context_cache_invalidate    # Forzar re-cache
+```
+
+### Plugins
+
+```bash
+source lib/plugins.sh
+plugins_init "/path/to/cmx-core"
+
+# Registrar plugin
+plugins_register "mi-notifier" "/path/to/notifier.sh" "Notificaciones Slack"
+
+# Gestionar
+plugins_list
+plugins_disable "mi-notifier"
+plugins_enable "mi-notifier"
+plugins_unregister "mi-notifier"
+```
+
+### Tests
+
+```bash
+# Suite completa (120 tests bash + 19 Python)
+bash tests/test-security.sh
+python3 -m pytest tests/test_ai_selector.py -v
+
+# Por categoría
+bash tests/test-security.sh sql        # SQL injection
+bash tests/test-security.sh timeout    # Timeouts
+bash tests/test-security.sh logger     # Logging
+bash tests/test-security.sh syntax     # Syntax check
 ```
 
 ---
 
-## Ejemplo: Crear una App (Modo Tradicional)
+## Arquitectura
 
-```bash
-# 1. Navegar al proyecto
-cd cmx-core
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        CMX-CORE v2.3.0                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Usuario ──▶ cmx CLI ──▶ brain.sh (Cerebro)                    │
+│                              │                                  │
+│              ┌───────────────┼───────────────┐                 │
+│              ▼               ▼               ▼                  │
+│        ai-selector     context-cache    lib/logger.sh           │
+│        (Python)        (hash-based)     lib/metrics.sh          │
+│              │                              │                   │
+│              ▼                              ▼                   │
+│  ┌───────────────────┐          ┌──────────────────────┐       │
+│  │  pipeline.sh      │          │  memories.db         │       │
+│  │  (DAG + state     │          │  (SQLite + FTS5)     │       │
+│  │   locking)        │          │                      │       │
+│  └────────┬──────────┘          └──────────────────────┘       │
+│           │                                                     │
+│           ▼                                                     │
+│  ┌───────────────────────────────────────────────────┐         │
+│  │  agents/                                           │         │
+│  │  explorer → proposer → spec → design → tasks      │         │
+│  │  → implementer (AI Selector) → verifier → archiver │         │
+│  └───────────────────────────────────────────────────┘         │
+│                                                                 │
+│  lib/plugins.sh ──▶ Sistema de plugins extensible              │
+│  lib/state-lock.sh ──▶ File locking (flock + mkdir fallback)   │
+│  lib/agent-ai.sh ──▶ Wrapper AI para agentes                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-# 2. Inicializar
-./run.sh init
+### Componentes
 
-# 3. Ejecutar con tu idea
-./run.sh run mi-app "una app de notas con React y localStorage"
+| Componente | Archivo | Descripción |
+|-----------|---------|-------------|
+| CLI | `cmx` | Punto de entrada principal |
+| Cerebro | `brain.sh` | Analiza, selecciona IA, delega |
+| AI Selector | `lib/ai_selector.py` | Selección inteligente (Python) |
+| Pipeline | `orchestrator/pipeline.sh` | DAG engine + state locking |
+| Monitor | `orchestrator/monitor.sh` | UI de monitoreo en terminal |
+| Logger | `lib/logger.sh` | Logging centralizado |
+| Metrics | `lib/metrics.sh` | Métricas de ejecución |
+| Memoria | `memories.db` | SQLite + FTS5 full-text search |
+| Context Cache | `lib/context-cache.sh` | Cache con hash invalidation |
+| State Lock | `lib/state-lock.sh` | File locking (flock + mkdir) |
+| Agent AI | `lib/agent-ai.sh` | Wrapper AI Selector para agentes |
+| Plugins | `lib/plugins.sh` | Sistema de plugins con hooks |
 
-# 4. El sistema:
-#    - Explorará la idea
-#    - Propondrá arquitectura
-#    - Escribirá specs
-#    - Implementará en batches
-#    - Verificará cada batch
-#    - Te pide aprobación en cada HITL gate
+### IAs Soportadas
+
+| IA | Tipo | Costo | Mejor para |
+|----|------|-------|------------|
+| **OpenCode** | CLI | Gratis | Implementation, coding |
+| **Gemini CLI** | CLI | Gratis | Tareas triviales, análisis |
+| **OpenRouter** | API | Variable | Síntesis, fallback |
+| **Ollama** | CLI local | Local | Offline, privacidad |
+
+---
+
+## Estructura del Proyecto
+
+```
+cmx-core/
+├── cmx                         # CLI principal
+├── brain.sh                    # Cerebro autónomo
+├── run.sh                      # Pipeline SDD tradicional
+│
+├── lib/                        # ← Bibliotecas reutilizables (v2.2.0+)
+│   ├── logger.sh               # Logging centralizado
+│   ├── metrics.sh              # Métricas de ejecución
+│   ├── ai_selector.py          # AI Selector (Python)
+│   ├── agent-ai.sh             # Wrapper AI para agentes
+│   ├── state-lock.sh           # File locking
+│   ├── context-cache.sh        # Cache de contexto
+│   └── plugins.sh              # Sistema de plugins
+│
+├── scripts/                    # Scripts del sistema autónomo
+│   ├── ai-selector.sh          # Wrapper → Python delegation
+│   ├── ai-executor.sh          # Ejecutor con retry/fallback
+│   ├── memory-save.sh          # Guardar en SQLite (SQL-safe)
+│   ├── memory-query.sh         # Consultar con FTS5
+│   ├── cleanup-project.sh      # Síntesis post-proyecto
+│   ├── check-environment.sh    # Pre-flight check
+│   ├── backup-memories.sh      # Backup DB
+│   ├── restore-memories.sh     # Restore DB
+│   └── cmx-memories-init.sh    # Inicializar SQLite
+│
+├── orchestrator/               # Motor de orquestación
+│   ├── pipeline.sh             # DAG engine + state locking
+│   ├── brain-adapter.sh        # Conecta brain → pipeline
+│   ├── monitor.sh              # UI de monitoreo
+│   ├── agent-comm.sh           # Comunicación entre agentes
+│   └── summary.sh              # Resúmenes HITL
+│
+├── agents/                     # Agentes SDD
+│   ├── explorer.sh             # Explora codebase
+│   ├── implementer.sh          # Implementa código (con AI Selector)
+│   └── ...                     # proposer, spec, design, tasks, etc.
+│
+├── config/                     # Configuración
+│   ├── ai-registry.json        # Registro de IAs
+│   ├── autonomy.yaml           # Niveles de autonomía
+│   └── prompts/base.txt        # Prompt base
+│
+├── tests/                      # Tests automatizados
+│   ├── test-security.sh        # 120 tests bash
+│   └── test_ai_selector.py     # 19 tests Python
+│
+├── .github/workflows/          # CI/CD
+│   └── test.yml                # GitHub Actions
+│
+└── artifacts/                  # Artefactos generados por el pipeline
 ```
 
 ---
 
-## Configuración Opcional
-
-### Alias útiles (agregar a ~/.bashrc)
+## Flujo de Trabajo Típico
 
 ```bash
-# Modo SDD tradicional
-alias cs='cd ~/cmx-core && ./run.sh'
-alias cs-run='cd ~/cmx-core && ./run.sh run'
-alias cs-status='cd ~/cmx-core && ./run.sh status'
-alias cs-init='cd ~/cmx-core && ./run.sh init'
+# 1. Verificar que todo está bien
+cmx env-check && cmx status
 
-# Sistema Autónomo
+# 2. Ejecutar una tarea
+cmx task "crear endpoint de health check" --project mi-api
+
+# 3. Revisar qué se hizo
+cmx memories mi-api decision
+cmx search "health check" mi-api
+
+# 4. Ver métricas
+source lib/metrics.sh && metrics_init "mi-api" && metrics_report
+
+# 5. Cuando termines el proyecto
+cmx cleanup mi-api    # Sintetiza lecciones y limpia
+```
+
+---
+
+## Alias Útiles
+
+Agrega a tu `~/.bashrc`:
+
+```bash
+# CMX-CORE
 alias cmx='cd ~/cmx-core && ./cmx'
 alias cmx-task='cd ~/cmx-core && ./cmx task'
 alias cmx-status='cd ~/cmx-core && ./cmx status'
+alias cmx-logs='tail -f ~/cmx-core/logs/cmx-$(date +%Y%m%d).log'
+alias cmx-metrics='cd ~/cmx-core && source lib/metrics.sh && metrics_init "cmx-core" && metrics_report'
+alias cmx-test='cd ~/cmx-core && bash tests/test-security.sh'
 ```
-
-### Variables de entorno
-
-```bash
-# Directorio de trabajo custom
-export CMX_WORKSPACE=/tu/path/custom
-
-# API Keys para el sistema autónomo
-export OPENCOD_API_KEY="..."
-export GEMINI_API_KEY="..."
-export OPENROUTER_API_KEY="..."
-```
-
----
-
-## Estado del Proyecto
-
-### ✅ v2.1.0 Completado
-
-- Cerebro principal (`brain.sh`)
-- CLI principal (`cmx`)
-- Registro de IAs (`config/ai-registry.json`) - v3.0
-- Niveles de autonomía (`config/autonomy.yaml`)
-- Pre-flight check (`check-environment.sh`)
-- cmx-memories (**SQLite + FTS5 backend**)
-- ai-selector con cost-based selection
-- ai-executor con retry/fallback automático
-- Síntesis automática (`cleanup-project.sh`)
-- brain-adapter.sh (conecta brain → pipeline)
-- Scripts de backup/restore
-- Setup de AI providers
-
-### Características v2.1.0
-
-| Feature | Descripción |
-|---------|-------------|
-| **SQLite Backend** | memories.db con FTS5 búsqueda full-text |
-| **Cost-Based Selection** | Tareas triviales → gemini (cost 1) |
-| **Retry Logic** | Fallback automático si IA falla |
-| **3 AI Providers** | OpenCode, Gemini CLI, OpenRouter |
-| **Backup/Restore** | Compresión + integrity check |
 
 ---
 
 ## Solución de Problemas
 
-### "Command not found: jq"
-
-```bash
-# Ubuntu/Debian
-sudo apt install jq
-
-# Fedora
-sudo dnf install jq
-
-# macOS
-brew install jq
-```
-
-### "Permission denied" en scripts
-
-```bash
-chmod +x run.sh agents/*.sh
-```
-
-### Ver logs
-
-```bash
-tail -f orchestrator/logs/*.log
-```
-
-### Resetear todo
-
-```bash
-./run.sh reset
-```
+| Problema | Solución |
+|----------|----------|
+| `jq: command not found` | `sudo apt install jq` |
+| `sqlite3: command not found` | `sudo apt install sqlite3` |
+| `Permission denied` | `chmod +x cmx brain.sh scripts/*.sh` |
+| IA no responde | Los timeouts están configurados (5min/3min/2min) |
+| Error de memoria | `./cmx init` para reinicializar SQLite |
+| Algo se rompió | `bash tests/test-security.sh` para diagnosticar |
 
 ---
 
-## Tecnologías Soportadas
+## Changelog
 
-### Frontend
-- React / Next.js
-- Vue / Nuxt
-- Svelte
-- TypeScript
-- Tailwind CSS
+### v2.3.0 — Production Ready
+- CI/CD con GitHub Actions
+- AI Selector migrado a Python (19 tests unitarios)
+- Wrapper bash con fallback automático
 
-### Backend
-- Node.js / Express
-- Python / Django / FastAPI
-- Go
-- Rust
+### v2.2.0 — Quality & Observability
+- Logging centralizado (lib/logger.sh)
+- Métricas de ejecución (lib/metrics.sh)
+- Agent AI Wrapper (lib/agent-ai.sh)
+- State Locking con flock (lib/state-lock.sh)
+- Context Cache (lib/context-cache.sh)
+- Plugin System (lib/plugins.sh)
+- 120 tests bash automatizados
 
-### Bases de Datos
-- PostgreSQL
-- MySQL
-- SQLite
-- MongoDB
+### v2.1.1 — Security Hardening
+- SQL Injection prevention (4 capas)
+- Timeouts en todas las ejecuciones de IA
+- Fix: cleanup-project.sh (JSON → SQLite)
+- Fix: variable CLEANUP no definida en CLI
+
+### v2.1.0 — SQLite + FTS5
+- Migración de JSON a SQLite
+- Búsqueda full-text con FTS5
+- brain-adapter.sh
+- Cost-based AI selection
+- Backup/Restore
 
 ---
 
@@ -572,21 +448,21 @@ tail -f orchestrator/logs/*.log
 1. Fork del repo
 2. Crear branch: `git checkout -b feature/nueva-funcionalidad`
 3. Commit: `git commit -m "feat: agregar nueva funcionalidad"`
-4. Push: `git push origin feature/nueva-funcionalidad`
-5. Abrir Pull Request
+4. **Ejecutar tests**: `bash tests/test-security.sh && python3 -m pytest tests/test_ai_selector.py -v`
+5. Push y abrir Pull Request
 
 ---
 
 ## Licencia
 
-MIT License - Daniel-L10N
+MIT License — Daniel-L10N
 
 ---
 
 ## Links
 
-- 📦 **Repositorio**: https://github.com/Daniel-L10N/cmx-core
-- 📖 **Documentación**: Ver `MANUAL.md` para guía detallada
+- 📦 **Repo**: https://github.com/Daniel-L10N/cmx-core
+- 📖 **Manual**: Ver `MANUAL.md`
 - 🐛 **Issues**: https://github.com/Daniel-L10N/cmx-core/issues
 
 ---

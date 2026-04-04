@@ -1,18 +1,21 @@
 #!/bin/bash
 # Cleanup Project - Cleanup post-proyecto con Síntesis Automática
 # Uso: cleanup-project.sh <project-name>
+#
+# v2.1.1 — FIXED: Ahora usa SQLite (memories.db) en lugar de JSON
+#          Reescrita toda la lógica de eliminación con SQL nativo
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-MEMORIES_DB="$PROJECT_ROOT/memories.json"
+MEMORIES_DB="$PROJECT_ROOT/memories.db"
 MEMORY_SAVE="$PROJECT_ROOT/scripts/memory-save.sh"
 MEMORY_QUERY="$PROJECT_ROOT/scripts/memory-query.sh"
 REGISTRY_FILE="$PROJECT_ROOT/config/ai-registry.json"
 
 PROJECT="${1}"
-LLM_FOR_SYNTHESIS="openrouter"  # Usar openrouter para síntesis
+LLM_FOR_SYNTHESIS="openrouter"
 
 # Colores
 GREEN='\033[0;32m'
@@ -24,19 +27,37 @@ NC='\033[0m'
 log() { echo -e "${BLUE}[CLEANUP]${NC} $1"; }
 log_ok() { echo -e "${GREEN}[OK]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+# ============================================================================
+# VALIDACIÓN
+# ============================================================================
 
 if [ -z "$PROJECT" ]; then
     echo "Uso: cleanup-project.sh <project-name>"
     exit 1
 fi
 
+# Verificar que la base de datos existe
+if [ ! -f "$MEMORIES_DB" ]; then
+    log_error "Base de datos no encontrada: $MEMORIES_DB"
+    log_error "Ejecuta primero: cmx init"
+    exit 1
+fi
+
 log "Iniciando cleanup para proyecto: $PROJECT"
 
-# 1. Leer todas las decisiones del proyecto
-log "Consultando decisiones del proyecto..."
-DECISIONS=$("$MEMORY_QUERY" "$PROJECT" "" "decision" 1000 2>/dev/null || echo "[]")
+# ============================================================================
+# 1. Contar y extraer decisiones del proyecto
+# ============================================================================
 
-DECISIONS_COUNT=$(echo "$DECISIONS" | jq 'length' 2>/dev/null || echo "0")
+log "Consultando decisiones del proyecto..."
+
+DECISIONS_COUNT=$(sqlite3 "$MEMORIES_DB" "
+    SELECT COUNT(*) FROM memories
+    WHERE project = '$(echo "$PROJECT" | sed "s/'/''/g")'
+    AND type = 'decision';
+" 2>/dev/null || echo "0")
 
 if [ "$DECISIONS_COUNT" -eq 0 ]; then
     log_warn "No hay decisiones para sintetizar"
@@ -46,20 +67,28 @@ fi
 
 log "Encontradas $DECISIONS_COUNT decisiones"
 
+# ============================================================================
 # 2. Extraer contenido de decisiones para el prompt
-DECISIONS_CONTENT=""
-for i in $(seq 0 $(($DECISIONS_COUNT - 1))); do
-    decision=$(echo "$DECISIONS" | jq -r ".[$i].content // .title" 2>/dev/null || echo "")
-    agent=$(echo "$DECISIONS" | jq -r ".[$i].agent // \"unknown\"" 2>/dev/null || echo "")
-    phase=$(echo "$DECISIONS" | jq -r ".[$i].phase // \"unknown\"" 2>/dev/null || echo "")
-    created=$(echo "$DECISIONS" | jq -r ".[$i].created_at // \"\"" 2>/dev/null || echo "")
-    
-    if [ -n "$decision" ]; then
-        DECISIONS_CONTENT="$DECISIONS_CONTENT\n- [$created] $agent ($phase): $decision"
-    fi
-done
+# ============================================================================
 
+DECISIONS_CONTENT=""
+while IFS='|' read -r content agent phase created_at; do
+    if [ -n "$content" ]; then
+        DECISIONS_CONTENT="${DECISIONS_CONTENT}\n- [$created_at] $agent ($phase): $content"
+    fi
+done < <(sqlite3 "$MEMORIES_DB" "
+    SELECT content, agent, phase, created_at
+    FROM memories
+    WHERE project = '$(echo "$PROJECT" | sed "s/'/''/g")'
+    AND type = 'decision'
+    ORDER BY created_at ASC
+    LIMIT 100;
+" 2>/dev/null || echo "")
+
+# ============================================================================
 # 3. Construir prompt de síntesis
+# ============================================================================
+
 SYNTHESIS_PROMPT="Eres un analista técnico senior. Lee las siguientes decisiones de un proyecto 
 y escribe un 'Informe de Lecciones Aprendidas' de una página.
 
@@ -79,10 +108,13 @@ Formato: Markdown, máximo 400 palabras.
 Usa encabezados claros: ## Errores, ## Decisiones de IA, ## Recomendaciones, ## Métricas
 No inventes datos que no estén en las decisiones."
 
-# 4. Invocar IA para síntesis
-log "Invocando IA para generar síntesis ($LLM_FOR_SYNTHESIS)..."
+# ============================================================================
+# 4. Generar síntesis
+# ============================================================================
 
-# Verificar que openrouter esté disponible
+log "Generando síntesis..."
+
+# Verificar si openrouter está disponible
 OPENROUTER_AVAILABLE=false
 if [ -n "$OPENROUTER_API_KEY" ]; then
     OPENROUTER_AVAILABLE=true
@@ -90,8 +122,7 @@ fi
 
 if [ "$OPENROUTER_AVAILABLE" = false ]; then
     log_warn "OpenRouter no disponible. Generando síntesis manual..."
-    
-    # Síntesis manual básica
+
     SYNTHESIS_CONTENT="# Informe de Lecciones Aprendidas - $PROJECT
 
 ## Resumen
@@ -105,10 +136,9 @@ Proyecto procesado con $DECISIONS_COUNT decisiones analizadas.
 La síntesis automática requiere OPENROUTER_API_KEY configurada.
 Las decisiones individuales se mantendrán hasta que se configure la síntesis."
 else
-    # Usar opencode para invocar a OpenRouter (usando su habilidad de chat)
-    # Como no tenemos acceso directo a OpenRouter, usamos opencode como proxy
-    SYNTHESIS_CONTENT=$(opencode run "$SYNTHESIS_PROMPT" 2>&1 | head -500) || true
-    
+    # Usar opencode para generar síntesis
+    SYNTHESIS_CONTENT=$(timeout 120 opencode run "$SYNTHESIS_PROMPT" 2>&1 | head -500) || true
+
     if [ -z "$SYNTHESIS_CONTENT" ] || [ ${#SYNTHESIS_CONTENT} -lt 50 ]; then
         log_warn "Síntesis automática falló. Usando template básico."
         SYNTHESIS_CONTENT="# Informe de Lecciones Aprendidas - $PROJECT
@@ -126,53 +156,62 @@ Revisa las decisiones individuales en cmx-memories."
     fi
 fi
 
-# 5. Verificar si ya existe síntesis anterior
-EXISTING_SYNTHESIS=$("$MEMORY_QUERY" "$PROJECT" "" "synthesis" 1 2>/dev/null | jq -r '.[0] // null' 2>/dev/null || echo "null")
+# ============================================================================
+# 5. Guardar síntesis
+# ============================================================================
 
-if [ "$EXISTING_SYNTHESIS" != "null" ]; then
-    log "Actualizando síntesis existente (accumulative)..."
-    EXISTING_ID=$(echo "$EXISTING_SYNTHESIS" | jq -r '.id')
-    # Actualizar la síntesis existente (append)
-    UPDATED_CONTENT="$SYNTHESIS_CONTENT
+log "Guardando síntesis..."
 
----
+"$MEMORY_SAVE" "synthesis" "lecciones-aprendidas-$PROJECT" \
+    "$SYNTHESIS_CONTENT" \
+    "$PROJECT" "cleanup" "cleanup-$(date +%s)" "synthesis"
 
-*Síntesis previa actualizada el $(date -Iseconds)*"
-    
-    # Guardar como nueva síntesis (SQLite no permite update fácil de texto)
-    "$MEMORY_SAVE" "synthesis" "lecciones-aprendidas-$PROJECT" \
-        "$UPDATED_CONTENT" \
-        "$PROJECT" "cleanup" "cleanup-$(date +%s)" "synthesis"
-else
-    # 6. Guardar nueva síntesis
-    log "Guardando nueva síntesis..."
-    "$MEMORY_SAVE" "synthesis" "lecciones-aprendidas-$PROJECT" \
-        "$SYNTHESIS_CONTENT" \
-        "$PROJECT" "cleanup" "cleanup-$(date +%s)" "synthesis"
-fi
+# ============================================================================
+# 6. Eliminar decisiones individuales (usando SQL nativo — v2.1.1 fix)
+# ============================================================================
 
-# 7. Eliminar decisiones individuales (ephímero)
-log "Eliminando decisiones individuales..."
+log "Eliminando decisiones individuales del proyecto..."
 
-# Contar decisiones antes de eliminar
-DECISIONS_BEFORE=$(jq "[.memories[] | select(.project == \"$PROJECT\" and .type == \"decision\")] | length" "$MEMORIES_DB" 2>/dev/null || echo "0")
+PROJECT_ESCAPED=$(echo "$PROJECT" | sed "s/'/''/g")
 
-# Eliminar decisiones del proyecto (manteniendo síntesis)
-TEMP_FILE=$(mktemp)
-jq --arg proj "$PROJECT" '[.memories[] | select(.project != $proj or .type != "decision")]' "$MEMORIES_DB" > "$TEMP_FILE" && mv "$TEMP_FILE" "$MEMORIES_DB"
+# Contar antes de eliminar
+BEFORE_COUNT=$(sqlite3 "$MEMORIES_DB" "
+    SELECT COUNT(*) FROM memories
+    WHERE project = '$PROJECT_ESCAPED' AND type = 'decision';
+" 2>/dev/null || echo "0")
 
-DELETED_COUNT=$DECISIONS_BEFORE
+# Eliminar decisiones con SQL (no con jq — eso era el bug)
+sqlite3 "$MEMORIES_DB" "
+    DELETE FROM memories
+    WHERE project = '$PROJECT_ESCAPED' AND type = 'decision';
+" 2>/dev/null || {
+    log_error "Error al eliminar decisiones"
+    exit 1
+}
+
+# Verificar eliminación
+AFTER_COUNT=$(sqlite3 "$MEMORIES_DB" "
+    SELECT COUNT(*) FROM memories
+    WHERE project = '$PROJECT_ESCAPED' AND type = 'decision';
+" 2>/dev/null || echo "0")
+
+DELETED_COUNT=$((BEFORE_COUNT - AFTER_COUNT))
 log_ok "Eliminadas $DELETED_COUNT decisiones individuales"
 
-# 8. Output final
+# ============================================================================
+# 7. Output final
+# ============================================================================
+
 log_ok "Cleanup completado"
 
-echo "{"
-echo "  \"status\": \"completed\","
-echo "  \"project\": \"$PROJECT\","
-echo "  \"decisions_analyzed\": $DECISIONS_COUNT,"
-echo "  \"kept\": \"synthesis\","
-echo "  \"removed\": $DELETED_COUNT,"
-echo "  \"synthesis_type\": \"lecciones-aprendidas\","
-echo "  \"timestamp\": \"$(date -Iseconds)\""
-echo "}"
+cat << EOF
+{
+  "status": "completed",
+  "project": "$PROJECT",
+  "decisions_analyzed": $DECISIONS_COUNT,
+  "decisions_deleted": $DELETED_COUNT,
+  "kept": "synthesis",
+  "synthesis_type": "lecciones-aprendidas",
+  "timestamp": "$(date -Iseconds)"
+}
+EOF

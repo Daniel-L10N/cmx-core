@@ -38,3 +38,18 @@ Thumbs.db
 dist/
 build/
 .next/
+
+# Python
+.pytest_cache/
+*.egg-info/
+
+# Context cache
+.context-cache/
+
+# Test artifacts
+tests/test-*.db
+tests/test-*.json
+tests/test-*.lock
+
+# Logs directory
+logs/

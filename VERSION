@@ -1,29 +1,41 @@
 # CMX-CORE Version
-2.1.0
+2.3.0
 ---
 Fecha: 2026-04-03
-Fecha: 2026-04-03
 
-## Cambios en v2.1.0
+## Cambios en v2.3.0 — Production Ready
 
-### Nuevas Features
-- SQLite + FTS5 backend para cmx-memories
-- brain-adapter.sh - conecta brain con pipeline SDD
-- AI providers configurados: OpenCode, Gemini CLI, OpenRouter
-- Coste-based AI selection (trivial tasks → gemini)
-- Retry logic con fallback automático
-- Scripts de backup/restore
+### CI/CD
+- **GitHub Actions** (.github/workflows/test.yml)
+  - Test suite automático en push y PR
+  - Syntax check de todos los scripts
+  - Python tests con pytest
+  - ShellCheck linting
+  - Upload de logs como artifacts
 
-### Breaking Changes
-- Backend migrado de JSON a SQLite
-- ai-selector.sh ahora detecta tareas triviales
+### Python Migration
+- **AI Selector en Python** (lib/ai_selector.py)
+  - Reemplazo completo del ai-selector.sh (197 → 303 líneas)
+  - Mejor manejo de JSON (stdlib json vs jq)
+  - Regex más robusto para clasificación de tareas
+  - Manejo de errores con try/except
+  - 19 tests unitarios con pytest (100% pass)
 
-### Archivos Nuevos
-- memories.db (SQLite)
-- brain-adapter.sh
-- ai-executor.sh
-- backup-memories.sh
-- restore-memories.sh
-- migrate-to-sqlite.sh
-- setup-ai-providers.sh
-- test-ai-providers.sh
+- **Wrapper Bash** (scripts/ai-selector.sh)
+  - Delega automáticamente a Python si está disponible
+  - Fallback a bash original si Python no existe
+  - 100% backwards compatible — ningún script necesita cambios
+
+### Tests
+- **Python Tests** (tests/test_ai_selector.py)
+  - 19 tests: clasificación, trivialidad, disponibilidad, selección, CLI
+  - Mocks para aislamiento completo
+  - Integration tests para wrapper bash
+
+- **Bash Tests** (tests/test-security.sh)
+  - 120 tests totales (108 bash + 7 python + 5 syntax nuevos)
+  - Pass rate: 100% (120/120)
+  - Syntax check de 23 scripts
+
+### Config
+- **.gitignore** actualizado para Python, logs, test artifacts

@@ -2,6 +2,8 @@
 # Memory Query - Consulta decisiones en cmx-memories (SQLite backend)
 # Uso: memory-query.sh [project] [agent] [type] [limit]
 # Uso: memory-query.sh --search "query" [project] [type] [limit]
+#
+# v2.1.1 — SECURITY: Input validation + robust SQL escaping + sanitization
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -11,22 +13,106 @@ MEMORIES_DB="$PROJECT_ROOT/memories.db"
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m'
 
-log() { echo -e "${BLUE}[QUERY]${NC} $1"; }
-log_search() { echo -e "${YELLOW}[SEARCH]${NC} $1"; }
+log() { echo -e "${BLUE}[QUERY]${NC} $1" >&2; }
+log_search() { echo -e "${YELLOW}[SEARCH]${NC} $1" >&2; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1" >&2; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1" >&2; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# Parsear argumentos
+# ============================================================================
+# CONSTANTES DE SEGURIDAD
+# ============================================================================
+
+VALID_TYPES="decision synthesis task note bugfix architecture"
+MAX_LIMIT=1000
+DEFAULT_LIMIT=50
+MAX_QUERY_LENGTH=500
+
+# ============================================================================
+# SQL ESCAPE ROBUSTO (v2.1.1 — Security Hardening)
+# ============================================================================
+
+sql_escape() {
+    local input="$1"
+
+    # Paso 1: Escapar backslashes primero
+    input="${input//\\/\\\\}"
+
+    # Paso 2: Escapar comillas simples (SQLite: '' = literal ')
+    input="${input//\'/\'\'}"
+
+    # Paso 3: Escapar comillas dobles
+    input="${input//\"/\\\"}"
+
+    # Paso 4: Escapar caracteres de control
+    input="${input//$'\t'/\\t}"
+    input="${input//$'\n'/\\n}"
+    input="${input//$'\r'/\\r}"
+
+    echo "$input"
+}
+
+# Validar que un valor sea un tipo de memoria válido
+validate_type() {
+    local type_val="$1"
+    if [ -z "$type_val" ]; then
+        return 0  # Empty is OK (no filter)
+    fi
+    for vt in $VALID_TYPES; do
+        if [ "$type_val" = "$vt" ]; then
+            return 0
+        fi
+    done
+    log_error "Tipo de memoria inválido: '$type_val'"
+    log_error "Tipos válidos: $VALID_TYPES"
+    return 1
+}
+
+# Validar y sanitizar un límite numérico
+sanitize_limit() {
+    local limit_val="$1"
+    # Si no es numérico, usar default
+    if ! [[ "$limit_val" =~ ^[0-9]+$ ]]; then
+        log_warn "Límite inválido '$limit_val', usando $DEFAULT_LIMIT"
+        echo "$DEFAULT_LIMIT"
+        return
+    fi
+    # Si excede el máximo, caparlo
+    if [ "$limit_val" -gt "$MAX_LIMIT" ]; then
+        log_warn "Límite $limit_val excede máximo $MAX_LIMIT, capando..."
+        echo "$MAX_LIMIT"
+        return
+    fi
+    # Si es 0 o negativo, usar default
+    if [ "$limit_val" -le 0 ]; then
+        echo "$DEFAULT_LIMIT"
+        return
+    fi
+    echo "$limit_val"
+}
+
+# ============================================================================
+# PARSEO DE ARGUMENTOS
+# ============================================================================
+
 SEARCH_QUERY=""
 PROJECT=""
 AGENT=""
 TYPE=""
-LIMIT="50"
+LIMIT="$DEFAULT_LIMIT"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --search|-s)
             SEARCH_QUERY="$2"
+            # Validar longitud de query
+            if [ ${#SEARCH_QUERY} -gt $MAX_QUERY_LENGTH ]; then
+                log_warn "Query excede $MAX_QUERY_LENGTH caracteres, truncando..."
+                SEARCH_QUERY="${SEARCH_QUERY:0:$MAX_QUERY_LENGTH}"
+            fi
             shift 2
             ;;
         --project|-p)
@@ -65,28 +151,42 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# Sanitizar límite
+LIMIT=$(sanitize_limit "$LIMIT")
+
+# Validar tipo si se proporcionó
+if [ -n "$TYPE" ]; then
+    validate_type "$TYPE" || exit 1
+fi
+
 # Si no existe el archivo, devolver vacío
 if [ ! -f "$MEMORIES_DB" ]; then
     echo "[]"
     exit 0
 fi
 
-# Modo búsqueda FTS5
+# ============================================================================
+# MODO BÚSQUEDA FTS5
+# ============================================================================
+
 if [ -n "$SEARCH_QUERY" ]; then
     log_search "Búsqueda FTS5: '$SEARCH_QUERY'"
-    
-    # Escapar comillas para FTS5
-    ESCAPED_QUERY=$(echo "$SEARCH_QUERY" | sed "s/'/''/g")
-    
+
+    # Sanitizar query para FTS5
+    # FTS5 usa su propio tokenizer, pero necesitamos escapar comillas
+    ESCAPED_QUERY=$(sql_escape "$SEARCH_QUERY")
+
     # Construir consulta FTS5 con filtros opcionales
     FTS_WHERE=""
     if [ -n "$PROJECT" ]; then
-        FTS_WHERE="AND m.project = '$PROJECT'"
+        ESCAPED_PROJECT=$(sql_escape "$PROJECT")
+        FTS_WHERE="AND m.project = '$ESCAPED_PROJECT'"
     fi
     if [ -n "$TYPE" ]; then
-        FTS_WHERE="$FTS_WHERE AND m.type = '$TYPE'"
+        ESCAPED_TYPE=$(sql_escape "$TYPE")
+        FTS_WHERE="$FTS_WHERE AND m.type = '$ESCAPED_TYPE'"
     fi
-    
+
     # Consulta FTS5 con bm25 ranking
     RESULT=$(sqlite3 "$MEMORIES_DB" "
     SELECT json_group_array(
@@ -109,8 +209,12 @@ if [ -n "$SEARCH_QUERY" ]; then
     $FTS_WHERE
     ORDER BY bm25(memories_fts)
     LIMIT $LIMIT;
-    ")
-    
+    " 2>&1) || {
+        log_error "Error en búsqueda FTS5: $RESULT"
+        echo "[]"
+        exit 1
+    }
+
     if [ -z "$RESULT" ] || [ "$RESULT" = "[]" ]; then
         echo "[]"
     else
@@ -119,21 +223,24 @@ if [ -n "$SEARCH_QUERY" ]; then
     exit 0
 fi
 
-# Modo consulta tradicional (por filtros)
+# ============================================================================
+# MODO CONSULTA TRADICIONAL (por filtros)
+# ============================================================================
+
 WHERE_CLAUSE="1=1"
 
 if [ -n "$PROJECT" ]; then
-    ESCAPED_PROJECT=$(echo "$PROJECT" | sed "s/'/''/g")
+    ESCAPED_PROJECT=$(sql_escape "$PROJECT")
     WHERE_CLAUSE="$WHERE_CLAUSE AND project = '$ESCAPED_PROJECT'"
 fi
 
 if [ -n "$AGENT" ]; then
-    ESCAPED_AGENT=$(echo "$AGENT" | sed "s/'/''/g")
+    ESCAPED_AGENT=$(sql_escape "$AGENT")
     WHERE_CLAUSE="$WHERE_CLAUSE AND agent = '$ESCAPED_AGENT'"
 fi
 
 if [ -n "$TYPE" ]; then
-    ESCAPED_TYPE=$(echo "$TYPE" | sed "s/'/''/g")
+    ESCAPED_TYPE=$(sql_escape "$TYPE")
     WHERE_CLAUSE="$WHERE_CLAUSE AND type = '$ESCAPED_TYPE'"
 fi
 
@@ -159,7 +266,11 @@ FROM (
     ORDER BY created_at DESC
     LIMIT $LIMIT
 );
-")
+" 2>&1) || {
+    log_error "Error en consulta: $RESULT"
+    echo "[]"
+    exit 1
+}
 
 if [ -z "$RESULT" ] || [ "$RESULT" = "[]" ]; then
     echo "[]"

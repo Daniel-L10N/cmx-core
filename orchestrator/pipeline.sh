@@ -19,6 +19,17 @@ if [ -f "$AGENT_COMM_SCRIPT" ]; then
     source "$AGENT_COMM_SCRIPT"
 fi
 
+# =============================================================================
+# STATE LOCKING (v2.2.0 — Previene race conditions en estado compartido)
+# =============================================================================
+STATE_LOCK_LIB="$WORKSPACE/lib/state-lock.sh"
+if [ -f "$STATE_LOCK_LIB" ]; then
+    source "$STATE_LOCK_LIB"
+    PIPELINE_STATE_LOCK_ENABLED=true
+else
+    PIPELINE_STATE_LOCK_ENABLED=false
+fi
+
 # Timeout por defecto para agentes (en minutos)
 AGENT_TIMEOUT_MINUTES="${AGENT_TIMEOUT_MINUTES:-30}"
 
@@ -54,7 +65,7 @@ init() {
         cat > "$STATE_FILE" << 'EOF'
 {
   "pipeline": "SDD",
-  "version": "1.0.0",
+  "version": "2.2.0",
   "change_name": null,
   "phases_completed": [],
   "approved_gates": {},
@@ -64,10 +75,15 @@ init() {
 }
 EOF
     fi
+
+    # Inicializar state locking si está disponible
+    if [ "$PIPELINE_STATE_LOCK_ENABLED" = true ]; then
+        state_lock_init "$STATE_FILE" 2>/dev/null || true
+    fi
 }
 
 # =============================================================================
-# ESTADO (persistente en JSON)
+# ESTADO (persistente en JSON con file locking — v2.2.0)
 # =============================================================================
 
 get_state() { cat "$STATE_FILE"; }
@@ -75,10 +91,22 @@ get_state() { cat "$STATE_FILE"; }
 update_state() {
     local key="$1"
     local value="$2"
+
+    # Usar state_lock si está disponible
+    if [ "$PIPELINE_STATE_LOCK_ENABLED" = true ] && type state_lock_update >/dev/null 2>&1; then
+        state_lock_update "$key" "$value" 2>/dev/null && return 0
+        # Fallback si el lock falla
+    fi
+
+    # Fallback: método original sin lock
     local temp=$(mktemp)
-    if [ "$value" == "null" ] || [ "$value" == "{}" ]; then
+    if [ "$value" == "null" ] || [ "$value" == "{}" ] || [ "$value" == "[]" ]; then
         jq ".$key = $value" "$STATE_FILE" > "$temp" && mv "$temp" "$STATE_FILE"
-    elif [[ "$value" =~ ^\[.*\]$ ]]; then
+    elif [[ "$value" =~ ^\[.*\]$ ]] || [[ "$value" =~ ^\{.*\}$ ]]; then
+        jq ".$key = $value" "$STATE_FILE" > "$temp" && mv "$temp" "$STATE_FILE"
+    elif [[ "$value" =~ ^[0-9]+$ ]]; then
+        jq ".$key = $value" "$STATE_FILE" > "$temp" && mv "$temp" "$STATE_FILE"
+    elif [ "$value" = "true" ] || [ "$value" = "false" ]; then
         jq ".$key = $value" "$STATE_FILE" > "$temp" && mv "$temp" "$STATE_FILE"
     else
         jq ".$key = \"$value\"" "$STATE_FILE" > "$temp" && mv "$temp" "$STATE_FILE"
@@ -87,12 +115,24 @@ update_state() {
 
 add_completed_phase() {
     local phase="$1"
+
+    if [ "$PIPELINE_STATE_LOCK_ENABLED" = true ] && type state_lock_add_phase >/dev/null 2>&1; then
+        state_lock_add_phase "$phase" 2>/dev/null && return 0
+    fi
+
     local temp=$(mktemp)
     jq ".phases_completed += [\"$phase\"] | .phases_completed |= unique" "$STATE_FILE" > "$temp" && mv "$temp" "$STATE_FILE"
 }
 
 is_phase_completed() {
-    jq -e ".phases_completed | index(\"$1\") != null" "$STATE_FILE" > /dev/null 2>&1
+    local phase="$1"
+
+    if [ "$PIPELINE_STATE_LOCK_ENABLED" = true ] && type state_lock_is_phase_done >/dev/null 2>&1; then
+        state_lock_is_phase_done "$phase" 2>/dev/null && return 0
+        return 1
+    fi
+
+    jq -e ".phases_completed | index(\"$phase\") != null" "$STATE_FILE" > /dev/null 2>&1
 }
 
 mark_phase_started() {
@@ -291,7 +331,15 @@ require_approval() {
     echo "================================"
     echo ""
     
-    local approved=$(jq -r ".approved_gates.\"$gate\" // false" "$STATE_FILE")
+    # Check approval gate con locking si disponible
+    local approved="false"
+    if [ "$PIPELINE_STATE_LOCK_ENABLED" = true ] && type state_lock_is_gate_approved >/dev/null 2>&1; then
+        if state_lock_is_gate_approved "$gate" 2>/dev/null; then
+            approved="true"
+        fi
+    else
+        approved=$(jq -r ".approved_gates.\"$gate\" // false" "$STATE_FILE")
+    fi
     
     if [ "$approved" == "true" ]; then
         log_ok "Gate ya aprobado: $gate"
@@ -303,8 +351,15 @@ require_approval() {
         read -r response < /dev/tty
         
         if [[ "$response" =~ ^[Yy]$ ]]; then
-            local temp=$(mktemp)
-            jq ".approved_gates.\"$gate\" = true" "$STATE_FILE" > "$temp" && mv "$temp" "$STATE_FILE"
+            if [ "$PIPELINE_STATE_LOCK_ENABLED" = true ] && type state_lock_mark_gate_approved >/dev/null 2>&1; then
+                state_lock_mark_gate_approved "$gate" 2>/dev/null || {
+                    local temp=$(mktemp)
+                    jq ".approved_gates.\"$gate\" = true" "$STATE_FILE" > "$temp" && mv "$temp" "$STATE_FILE"
+                }
+            else
+                local temp=$(mktemp)
+                jq ".approved_gates.\"$gate\" = true" "$STATE_FILE" > "$temp" && mv "$temp" "$STATE_FILE"
+            fi
             log_ok "APROBADO: $gate"
             return 0
         elif [[ "$response" =~ ^[Nn]$ ]]; then
