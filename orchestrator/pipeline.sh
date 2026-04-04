@@ -262,12 +262,34 @@ require_approval() {
     log_warn "🔒 APPROVAL GATE: $gate"
     echo ""
     
-    if [ -f "$artifact" ]; then
-        echo "=== ARTIFACT ($artifact) ==="
-        head -80 "$artifact"
-        echo ""
-        echo "================================"
+    # Obtener change_name del estado
+    local change=$(jq -r '.change_name // empty' "$STATE_FILE" 2>/dev/null || echo "")
+    
+    # Intentar obtener resumen de summary.sh, fallback a head -10 del artifact
+    if [ -n "$change" ]; then
+        local summary_output
+        summary_output=$("$WORKSPACE/orchestrator/summary.sh" hitl "$change" 2>/dev/null || echo "")
+        if [ -n "$summary_output" ]; then
+            echo "$summary_output"
+        else
+            # Fallback: usar head -10 del artifact
+            if [ -f "$artifact" ]; then
+                echo "=== RESUMEN (fallback: artifact) ==="
+                head -10 "$artifact"
+                echo ""
+            fi
+        fi
+    else
+        # Fallback: sin change_name, usar head -10 del artifact
+        if [ -f "$artifact" ]; then
+            echo "=== ARTIFACT ($artifact) ==="
+            head -10 "$artifact"
+            echo ""
+        fi
     fi
+    
+    echo "================================"
+    echo ""
     
     local approved=$(jq -r ".approved_gates.\"$gate\" // false" "$STATE_FILE")
     

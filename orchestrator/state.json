@@ -1,12 +1,12 @@
 {
   "pipeline": "SDD",
   "version": "1.0.0",
-  "change_name": null,
-  "phases_completed": [
-    "explore"
-  ],
-  "approved_gates": {},
+  "change_name": "test-change",
+  "phases_completed": [],
+  "approved_gates": {
+    "test-gate": true
+  },
   "artifacts": {},
   "started_at": null,
-  "current_phase": "explore"
+  "current_phase": null
 }
