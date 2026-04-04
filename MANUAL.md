@@ -1,253 +1,301 @@
-# Manual de Operaciones Rápido — CMX-CORE
+# Manual de Usuario — CMX-CORE v2.1.0
 
 > **Sistema de Control Modular MX**  
-> **Proyecto de ejemplo**: `mi-nueva-app`  
-> **Workspace base**: `/home/cmx/cmx-core`
+> **Versión**: 2.1.0 | **Fecha**: 2026-04-03
 
 ---
 
-## 1. Punto de Partida: Archivo JSON de Idea Inicial
-
-### Dónde crear el archivo
+## 🚀 Inicio Rápido
 
 ```bash
-# Crear directorio de exploración
-mkdir -p /home/cmx/cmx-core/artifacts/exploration
-```
+# 1. Clonar el repositorio
+git clone https://github.com/Daniel-L10N/cmx-core.git
+cd cmx-core
 
-### Estructura mínima del JSON
-
-Crea el archivo en: `artifacts/exploration/mi-nueva-app.json`
-
-```json
-{
-  "type": "exploration_input",
-  "version": "1.0.0",
-  "change": "mi-nueva-app",
-  "description": "Descripción breve de la feature que quieres construir",
-  "workspace": "/home/cmx/cmx-core",
-  "constraints": {
-    "language": "typescript",
-    "framework": "nextjs",
-    "styling": "tailwind"
-  }
-}
-```
-
-### Ejecutar Explorer
-
-```bash
-cd /home/cmx/cmx-core
-./agents/explorer.sh /home/cmx/cmx-core mi-nueva-app
-```
-
----
-
-## 2. Fase de Arquitectura: Orden de Comandos
-
-### Secuencia lineal (necesario completar uno antes del siguiente)
-
-```bash
-# 1. PROPOSER — Genera propuesta formal
-./agents/proposer.sh mi-nueva-app
-
-# 🔄 Se puede paralelizar con spec y design después de proposer
-# (Ver abajo)
-
-# 2. SPEC-WRITER — Genera especificación técnica
-./agents/spec-writer.sh mi-nueva-app
-
-# 3. DESIGNER — Genera diseño UI/UX  
-./agents/designer.sh mi-nueva-app
-
-# 4. TASK-PLANNER — Genera plan de tareas
-./agents/task-planner.sh mi-nueva-app
-```
-
-### Paralelización opcional (después de proposer)
-
-```bash
-# Estos dos pueden ejecutarse EN PARALELO después de proposer:
-./agents/spec-writer.sh mi-nueva-app &
-./agents/designer.sh mi-nueva-app &
-
-# Waiting...
-wait
-```
-
----
-
-## 3. Fase de Fabricación: Ciclo de Batches
-
-### Estructura del ciclo
-
-Cada batch = `implementer.sh` + `verifier.sh` + **HITL approval**
-
-### Comando fresco del ciclo
-
-```bash
-# --- BATCH 1: Setup Inicial ---
-./agents/implementer.sh mi-nueva-app 1
-./agents/verifier.sh mi-nueva-app 1
-# 🛑 HITL: Revisar artifacts/verification/mi-nueva-app_batch_1.json
-
-# --- BATCH 2: Funcionalidad Core ---
-./agents/implementer.sh mi-nueva-app 2  
-./agents/verifier.sh mi-nueva-app 2
-# 🛑 HITL: Revisar artifacts/verification/mi-nueva-app_batch_2.json
-
-# --- BATCH 3: Tests y Polish ---
-./agents/implementer.sh mi-nueva-app 3
-./agents/verifier.sh mi-nueva-app 3
-# 🛑 HITL: Revisar artifacts/verification/mi-nueva-app_batch_3.json
-```
-
-### La Puerta de Aprobación (HITL)
-
-**Cuándo el verificador FALLA** → Debes intervenir manualmente:
-
-| Condición | Acción Required |
-|-----------|-----------------|
-| `passed: false` | Revisar `issues_found[]` en el JSON de verificación |
-| `confidence < 8` | Revisar código manualmente |
-| `severity: high/medium` en issues | **Corregir los problemas antes de continuar** |
-
-### Si el verificador falla
-
-```bash
-# 1. Ver qué falló
-cat /home/cmx/cmx-core/artifacts/verification/mi-nueva-app_batch_N.json | jq
-
-# 2. Si hay issues HIGH/MEDIUM:
-#    - Leer los archivos problemáticos
-#    - Corregir manualmente o delegar a implementer con el mismo batch
-
-# 3. Re-ejecutar implementación (mismo batch)
-./agents/implementer.sh mi-nueva-app N
-
-# 4. Volver a verificar
-./agents/verifier.sh mi-nueva-app N
-```
-
----
-
-## 4. Monitoreo y Cierre
-
-### Monitoreo en tiempo real
-
-```bash
-# Ver estado actual (una vez)
-./orchestrator/monitor.sh --once
-
-# Monitoreo continuo (refresca cada 2s)
-./orchestrator/monitor.sh
-```
-
-### Indicadores visuales en monitor
-
-| Status | Significado |
-|--------|-------------|
-| 🔄 RUNNING | Agente ejecutándose |
-| ✅ DONE | Completado exitosamente |
-| ❌ FAILED | Falló |
-| ⏸ PENDING | No iniciado |
-| 🚨 (rojo) | HITL requerido |
-
-### Finalizar y archivar
-
-```bash
-# Cuando TODOS los batches pasaron
-./agents/archiver.sh mi-nueva-app
-```
-
-Esto mueve todos los artifacts a `artifacts/archive/mi-nueva-app_TIMESTAMP/`
-
----
-
-## Quick Reference — Comandos en una línea
-
-```bash
-# Fase 1: Exploración
-cd /home/cmx/cmx-core
-./agents/explorer.sh mi-nueva-app
-
-# Fase 2: Arquitectura (lineal)
-./agents/proposer.sh mi-nueva-app
-./agents/spec-writer.sh mi-nueva-app  
-./agents/designer.sh mi-nueva-app
-./agents/task-planner.sh mi-nueva-app
-
-# Fase 3: Fabricación (repetir N batches)
-./agents/implementer.sh mi-nueva-app N
-./agents/verifier.sh mi-nueva-app N
-# [HITL: revisar manualmente]
-# Repetir para siguiente batch
-
-# Cierre
-./agents/archiver.sh mi-nueva-app
-```
-
----
-
-## Ubicaciones clave
-
-| Artefacto | Ruta |
-|-----------|------|
-| Exploración | `artifacts/exploration/{change}.{json,md}` |
-| Propuesta | `artifacts/proposals/{change}.json` |
-| Spec | `artifacts/specs/{change}.json` |
-| Diseño | `artifacts/designs/{change}.json` |
-| Tareas | `artifacts/tasks/{change}.json` |
-| Implementación | `artifacts/implementation/{change}_batch_{N}.json` |
-| Verificación | `artifacts/verification/{change}_batch_{N}.json` |
-| Estado actual | `orchestrator/agent_state.json` |
-| Logs activos | `orchestrator/logs/active/` |
-| Archive | `artifacts/archive/{change}_{timestamp}/` |
-
----
-
-## Sistema Autónomo - Referencia Rápida
-
-### Inicialización
-
-```bash
-cd /home/cmx/cmx-core
+# 2. Inicializar el sistema
+source .env  # Configurar variables de entorno (si tienes)
 ./cmx init
+
+# 3. Ejecutar una tarea
+./cmx task "crear una API REST con autenticación"
+
+# 4. Ver estado
+./cmx status
 ```
 
-### Comandos Principales
+---
+
+## 📋 Modos de Uso
+
+### Modo 1: Sistema Autónomo (Recomendado)
+
+El cerebro analiza tu tarea y selecciona la mejor IA automáticamente.
 
 ```bash
-# Ejecutar tarea
-./cmx task "descripción" [--mode autonomous|hybrid|manual] [--project nombre]
+# Ejecutar tarea - el sistema decide cómo ejecutarla
+./cmx task "tu descripción" --mode hybrid
 
-# Estado del sistema
-./cmx status
+# Modes disponibles:
+# - manual: cada paso requiere aprobación
+# - hybrid: solo decisiones críticas requieren aprobación  
+# - autonomous: opera autonomously, reporta al final
+```
 
-# Listar IAs
-./cmx list-ias
+### Modo 2: Pipeline SDD Tradicional
+
+Desarrollo estructurado paso a paso.
+
+```bash
+./run.sh run mi-feature "descripción"
+# O paso a paso:
+./run.sh explore "tema"
+./run.sh propose
+./run.sh spec
+./run.sh design
+./run.sh tasks
+./run.sh apply 1
+./run.sh verify 1
+./run.sh archive
+```
+
+---
+
+## 🤖 AI Providers
+
+### Proveedores Configurados (v2.1.0)
+
+| Provider | Cost | Modelos | Comandos |
+|----------|------|---------|-----------|
+| **OpenCode** | Gratis | big-pickle, gpt-5-nano, minimax-m2.5-free, nemotron-3-super-free, qwen3.6-plus-free | `opencode run "task"` |
+| **Gemini CLI** | Gratis | gemini-2.0-flash, gemini-2.0-pro | `gemini -p "task"` |
+| **OpenRouter** | Gratis* | deepseek, llama3.2, gemma-2-2b, mistral | API |
+
+*Requiere API key (créditos gratuitos mensuales)
+
+### Cost-Based Selection
+
+El sistema selecciona automáticamente la IA más eficiente:
+
+- **Tareas triviales** (comentarios, traducciones, resúmenes) → **gemini** (cost_level: 1)
+- **Tareas de código** (implementación, refactoring) → **opencode** (cost_level: 2)
+- **Análisis complejos** → **gemini** o **openrouter**
+- **Fallback automático** si la IA primaria falla
+
+### Configurar API Keys
+
+```bash
+# Editar .env
+nano .env
+
+# Agregar:
+OPENROUTER_API_KEY="tu-api-key-de-openrouter"
+
+# Los demás providers no necesitan API key
+```
+
+---
+
+## 💾 cmx-memories (SQLite + FTS5)
+
+### Comandos de Memoria
+
+```bash
+# Guardar memoria
+./scripts/memory-save.sh <type> <title> <content> [project] [agent] [task_id]
+
+# Consultar memorias
+./cmx memories [project] [agent] [type] [limit]
+
+# Buscar (FTS5 full-text)
+./cmx search "query" [project] [type]
+
+# Backup
+./cmx backup
+# Restore
+./cmx restore <archivo-backup>
+```
+
+### Tipos de Memoria
+
+| Tipo | Descripción |
+|------|-------------|
+| `decision` | Decisiones del orquestador |
+| `synthesis` | Lecciones aprendidas |
+| `task` | Tareas del proyecto |
+| `note` | Notas generales |
+| `bugfix` | Correcciones de bugs |
+| `architecture` | Decisiones arquitectónicas |
+
+---
+
+## 🔧 Scripts Utilitarios
+
+### Setup y Configuración
+
+```bash
+# Setup de AI providers
+bash scripts/setup-ai-providers.sh
+
+# Test de conectividad
+bash scripts/test-ai-providers.sh
 
 # Verificar entorno
 ./cmx env-check
-
-# Ver memorias
-./cmx memories [proyecto] [agente] [tipo]
-
-# Cleanup post-proyecto
-./cmx cleanup <proyecto>
 ```
 
-### Archivos del Sistema Autónomo
+### Base de Datos
 
-| Componente | Ruta |
-|------------|------|
-| Cerebro | `brain.sh` |
-| CLI | `cmx` |
-| Registro IAs | `config/ai-registry.json` |
-| Autonomía | `config/autonomy.yaml` |
-| Memorias | `memories.json` |
-| Decisiones | `artifacts/memories/` |
+```bash
+# Inicializar DB SQLite
+bash scripts/cmx-memories-init.sh
+
+# Migrar JSON a SQLite
+bash scripts/migrate-to-sqlite.sh
+
+# Backup
+bash scripts/backup-memories.sh
+
+# Restore
+bash scripts/restore-memories.sh <archivo>
+```
+
+### AI Execution
+
+```bash
+# Selector de IA (muestra qué IA se usaría)
+bash scripts/ai-selector.sh <task-type>
+
+# Ejecutor con retry automático
+bash scripts/ai-executor.sh <ia> <task>
+# Si falla, automáticamente intenta con la siguiente en fallback chain
+```
 
 ---
 
-*Generated: CMX-CORE v2 — Sistema de Control Modular MX*
+## 📁 Estructura de Archivos
+
+```
+cmx-core/
+├── brain.sh              # Cerebro principal
+├── brain-adapter.sh     # Puente brain → pipeline
+├── cmx                   # CLI principal
+├── run.sh               # Pipeline SDD tradicional
+├── memories.db           # Base de datos SQLite + FTS5
+├── .env                 # Variables de entorno
+│
+├── agents/              # Agentes SDD
+│   ├── explorer.sh
+│   ├── proposer.sh
+│   └── ...
+│
+├── orchestrator/        # Orquestación
+│   ├── pipeline.sh
+│   ├── brain-adapter.sh
+│   └── monitor.sh
+│
+├── scripts/             # Scripts del sistema autónomo
+│   ├── ai-selector.sh      # Selección con cost-awareness
+│   ├── ai-executor.sh     # Ejecución con retry
+│   ├── memory-save.sh     # Guardar en SQLite
+│   ├── memory-query.sh    # Query + FTS5
+│   ├── backup-memories.sh
+│   ├── restore-memories.sh
+│   └── migrate-to-sqlite.sh
+│
+├── config/
+│   ├── ai-registry.json   # Registro de IAs (v3.0)
+│   └── autonomy.yaml      # Niveles de autonomía
+│
+└── artifacts/           # Artefactos generados
+    ├── exploration/
+    ├── proposals/
+    ├── specs/
+    ├── designs/
+    ├── tasks/
+    ├── implementation/
+    ├── verification/
+    └── archive/
+```
+
+---
+
+## ⚡ Referencia Rápida
+
+### Comandos cmx CLI
+
+```bash
+./cmx task "descripción"        # Ejecutar tarea
+./cmx status                   # Ver estado
+./cmx list-ias                 # Listar IAs disponibles
+./cmx env-check               # Verificar entorno
+./cmx memories [filtros]      # Ver memorias
+./cmx search "query"          # Buscar en memorias
+./cmx init                    # Inicializar sistema
+./cmx backup                  # Crear backup
+./cmx restore <archivo>       # Restaurar backup
+./cmx cleanup <proyecto>      # Cleanup post-proyecto
+./cmx help                    # Ver ayuda
+```
+
+### Variables de Entorno
+
+```bash
+# Required para OpenRouter (opcional)
+OPENROUTER_API_KEY=...
+
+# No requiere configuración
+# - OpenCode: modelos gratuitos incluidos
+# - Gemini CLI: usa su propia autenticación
+```
+
+---
+
+## 🔍 Solución de Problemas
+
+### "No hay proveedores disponibles"
+
+```bash
+# Verificar que las IAs están disponibles
+./cmx list-ias
+
+# Ver entorno
+./cmx env-check
+
+# Test de conectividad
+bash scripts/test-ai-providers.sh
+```
+
+### La base de datos no funciona
+
+```bash
+# Re-inicializar
+bash scripts/cmx-memories-init.sh
+
+# Restore desde backup
+bash scripts/restore-memories.sh backups/memories_*.db.gz
+```
+
+### El pipeline no ejecuta
+
+```bash
+# Ver estado
+./orchestrator/pipeline.sh status
+
+# Resetear
+./orchestrator/pipeline.sh reset
+```
+
+---
+
+## 📊 Versiones
+
+| Versión | Fecha | Cambios |
+|---------|-------|---------|
+| v2.1.0 | 2026-04-03 | SQLite + FTS5, brain-adapter, AI providers, cost-based selection |
+| v1.3.1 | 2026-03-22 | Sistema autónomo básico |
+| v1.0 | 2026-01-01 | Pipeline SDD |
+
+---
+
+*Manual generado para CMX-CORE v2.1.0*  
+*https://github.com/Daniel-L10N/cmx-core*
