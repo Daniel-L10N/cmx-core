@@ -206,4 +206,48 @@ cd /home/cmx/cmx-core
 
 ---
 
+## Sistema Autónomo - Referencia Rápida
+
+### Inicialización
+
+```bash
+cd /home/cmx/cmx-core
+./cmx init
+```
+
+### Comandos Principales
+
+```bash
+# Ejecutar tarea
+./cmx task "descripción" [--mode autonomous|hybrid|manual] [--project nombre]
+
+# Estado del sistema
+./cmx status
+
+# Listar IAs
+./cmx list-ias
+
+# Verificar entorno
+./cmx env-check
+
+# Ver memorias
+./cmx memories [proyecto] [agente] [tipo]
+
+# Cleanup post-proyecto
+./cmx cleanup <proyecto>
+```
+
+### Archivos del Sistema Autónomo
+
+| Componente | Ruta |
+|------------|------|
+| Cerebro | `brain.sh` |
+| CLI | `cmx` |
+| Registro IAs | `config/ai-registry.json` |
+| Autonomía | `config/autonomy.yaml` |
+| Memorias | `memories.json` |
+| Decisiones | `artifacts/memories/` |
+
+---
+
 *Generated: CMX-CORE v2 — Sistema de Control Modular MX*

@@ -1,0 +1,57 @@
+# Configuración de Niveles de Autonomía
+# Define qué HITL gates se activan según el nivel
+
+version: "1.0.0"
+
+# Nivel por defecto
+default: hybrid
+
+# Definición de niveles
+levels:
+  # Manual: cada paso requiere aprobación humana
+  manual:
+    description: "Cada paso requiere aprobación humana"
+    hitl_gates:
+      - propose
+      - spec
+      - design
+      - tasks
+      - apply
+      - archive
+    auto_approve: false
+
+  # Hybrid: solo decisiones críticas requieren aprobación
+  hybrid:
+    description: "Solo decisiones críticas requieren aprobación (spec, design)"
+    hitl_gates:
+      - spec
+      - design
+    auto_approve: true
+    critical_phases:
+      - spec
+      - design
+
+  # Autonomous: opera solo, reporta al final
+  autonomous:
+    description: "Opera de forma autónoma, reporta al final"
+    hitl_gates: []
+    auto_approve: true
+    report_only_at_end: true
+
+# Configuración de timeouts (en minutos)
+timeouts:
+  exploration: 30
+  proposal: 45
+  specification: 60
+  design: 60
+  implementation: 120
+  verification: 45
+
+# Configuración de reintentos
+retry:
+  max_attempts: 3
+  backoff_seconds: 10
+  on_failure:
+    - fallback_to_secondary_ia
+    - log_error
+    - notify_human_if_critical

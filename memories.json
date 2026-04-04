@@ -1,0 +1,42 @@
+{
+  "version": "1.0.0",
+  "type": "memories",
+  "memories": [
+    {
+      "id": 177526801811827,
+      "type": "decision",
+      "title": "test-decision",
+      "content": "Esta es una decisión de prueba para testear el sistema",
+      "project": "cmx-core",
+      "agent": "brain",
+      "task_id": "test-123",
+      "phase": "selection",
+      "created_at": "2026-04-03T20:00:18-06:00",
+      "updated_at": "2026-04-03T20:00:18-06:00"
+    },
+    {
+      "id": 177526804818087,
+      "type": "decision",
+      "title": "environment-check",
+      "content": "Check de entorno: unknown",
+      "project": "cmx-core",
+      "agent": "brain",
+      "task_id": "task-1775268048",
+      "phase": "initialization",
+      "created_at": "2026-04-03T20:00:48-06:00",
+      "updated_at": "2026-04-03T20:00:48-06:00"
+    },
+    {
+      "id": 177526804810815,
+      "type": "decision",
+      "title": "ia-selection",
+      "content": "Seleccionado opencode para tarea tipo 'coding'. Razón: default",
+      "project": "cmx-core",
+      "agent": "ai-selector",
+      "task_id": "task-1775268048",
+      "phase": "selection",
+      "created_at": "2026-04-03T20:00:48-06:00",
+      "updated_at": "2026-04-03T20:00:48-06:00"
+    }
+  ]
+}

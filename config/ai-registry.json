@@ -1,0 +1,53 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-04-03",
+  "ias": {
+    "opencode": {
+      "type": "cli",
+      "command": "opencode",
+      "capabilities": ["coding", "refactoring", "multi-file"],
+      "context_limit": "medium",
+      "status": "available",
+      "priority": 10,
+      "requires_env": ["OPENCOD_API_KEY"],
+      "best_for": ["implementation", "code-generation", "refactoring"]
+    },
+    "gemini": {
+      "type": "cli",
+      "command": "gemini",
+      "capabilities": ["analysis", "long-context", "research", "reasoning"],
+      "context_limit": "large",
+      "status": "available",
+      "priority": 8,
+      "requires_env": ["GEMINI_API_KEY"],
+      "best_for": ["analysis", "debugging", "research", "complex-reasoning"]
+    },
+    "openrouter": {
+      "type": "api",
+      "endpoint": "http://localhost:8080",
+      "capabilities": ["flexible", "multi-provider", "synthesis", "routing"],
+      "context_limit": "large",
+      "status": "available",
+      "priority": 5,
+      "requires_env": ["OPENROUTER_API_KEY"],
+      "best_for": ["synthesis", "summary", "complex-analysis", "fallback"]
+    },
+    "ollama": {
+      "type": "cli",
+      "command": "ollama",
+      "capabilities": ["local", "offline", "privacy"],
+      "context_limit": "small",
+      "status": "unavailable",
+      "priority": 3,
+      "requires_env": [],
+      "best_for": ["offline", "privacy-critical", "quick-local"]
+    }
+  },
+  "selection_rules": {
+    "coding": ["opencode"],
+    "analysis": ["gemini", "openrouter"],
+    "research": ["gemini"],
+    "synthesis": ["openrouter"],
+    "general": ["opencode", "gemini"]
+  }
+}

@@ -1,0 +1,182 @@
+#!/bin/bash
+# CMX CLI - Punto de entrada principal del sistema autónomo
+# Uso: cmx <comando> [opciones]
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR"
+
+# Scripts disponibles
+BRAIN="$PROJECT_ROOT/brain.sh"
+CHECK_ENV="$PROJECT_ROOT/scripts/check-environment.sh"
+AI_SELECTOR="$PROJECT_ROOT/scripts/ai-selector.sh"
+MEMORY_SAVE="$PROJECT_ROOT/scripts/memory-save.sh"
+MEMORY_QUERY="$PROJECT_ROOT/scripts/memory-query.sh"
+CLEANUP="$PROJECT_ROOT/scripts/cleanup-project.sh"
+CMX_INIT="$PROJECT_ROOT/scripts/cmx-memories-init.sh"
+
+# Colores
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+# Help
+show_help() {
+    cat << EOF
+CMX - Sistema Autónomo cmx-core
+================================
+
+Uso: cmx <comando> [opciones]
+
+COMANDOS:
+  task <descripción>     Ejecutar una tarea con el cerebro
+  status                Ver estado del sistema
+  list-ias              Listar IAs disponibles
+  env-check             Verificar entorno
+  memories [filtros]    Consultar memorias
+  cleanup <proyecto>    Cleanup post-proyecto
+  init                  Inicializar cmx-memories
+  help                  Mostrar esta ayuda
+
+OPCIONES:
+  --mode manual|hybrid|autonomous  Nivel de autonomía (default: hybrid)
+  --project <nombre>                Nombre del proyecto
+  --context <texto>                 Contexto adicional
+
+EJEMPLOS:
+  cmx task "crear una API REST"
+  cmx task "analizar el código" --mode autonomous
+  cmx list-ias
+  cmx memories cmx-core decision
+  cmx cleanup mi-proyecto
+
+EOF
+}
+
+# Comandos
+COMMAND="${1:-help}"
+shift || true
+
+case "$COMMAND" in
+    task)
+        TASK="$1"
+        if [ -z "$TASK" ]; then
+            echo "Error: Se requiere descripción de tarea"
+            echo "Uso: cmx task <descripción>"
+            exit 1
+        fi
+        shift
+        
+        # Parsear opciones adicionales
+        MODE="hybrid"
+        PROJECT="cmx-core"
+        CONTEXT=""
+        
+        while [[ $# -gt 0 ]]; do
+            case $1 in
+                --mode)
+                    MODE="$2"
+                    shift 2
+                    ;;
+                --project)
+                    PROJECT="$2"
+                    shift 2
+                    ;;
+                --context)
+                    CONTEXT="$2"
+                    shift 2
+                    ;;
+                *)
+                    shift
+                    ;;
+            esac
+        done
+        
+        "$BRAIN" --task "$TASK" --mode "$MODE" --project "$PROJECT" --context "$CONTEXT"
+        ;;
+    
+    status)
+        echo "=== CMX-CORE Status ==="
+        echo ""
+        echo "Proyecto: cmx-core"
+        echo "Timestamp: $(date -Iseconds)"
+        echo ""
+        
+        # Verificar memoria
+        if [ -f "$PROJECT_ROOT/memories.json" ]; then
+            MEM_COUNT=$(jq '.memories | length' "$PROJECT_ROOT/memories.json" 2>/dev/null || echo "0")
+            DECISIONS=$(jq '[.memories[] | select(.type == "decision")] | length' "$PROJECT_ROOT/memories.json" 2>/dev/null || echo "0")
+            SYNTHESIS=$(jq '[.memories[] | select(.type == "synthesis")] | length' "$PROJECT_ROOT/memories.json" 2>/dev/null || echo "0")
+            
+            echo "Memorias:"
+            echo "  Total: $MEM_COUNT"
+            echo "  Decisiones: $DECISIONS"
+            echo "  Síntesis: $SYNTHESIS"
+        else
+            echo "Memoria: No inicializada (ejecuta: cmx init)"
+        fi
+        echo ""
+        
+        # Verificar entorno
+        echo "Entorno:"
+        echo "  IAs disponibles:"
+        "$CHECK_ENV" 2>/dev/null | jq -r '.available[]' 2>/dev/null || echo "    [check-env error]"
+        ;;
+    
+    list-ias)
+        if [ -f "$PROJECT_ROOT/config/ai-registry.json" ]; then
+            echo "=== IAs Registradas ==="
+            echo ""
+            jq -r '.ias | to_entries[] | 
+                "\(.key): \(.value.status) (priority: \(.value.priority))\n  Capabilities: \((.value.capabilities | join(", ")))\n  Best for: \((.value.best_for | join(", ")))"' \
+                "$PROJECT_ROOT/config/ai-registry.json" | while IFS= read -r line; do
+                echo "  $line"
+            done
+        else
+            echo "Error: ai-registry.json no encontrado"
+            exit 1
+        fi
+        ;;
+    
+    env-check)
+        "$CHECK_ENV" --strict
+        ;;
+    
+    memories)
+        PROJECT="${1:-cmx-core}"
+        AGENT="${2:-}"
+        TYPE="${3:-}"
+        LIMIT="${4:-50}"
+        
+        "$MEMORY_QUERY" "$PROJECT" "$AGENT" "$TYPE" "$LIMIT"
+        ;;
+    
+    cleanup)
+        PROJECT="$1"
+        if [ -z "$PROJECT" ]; then
+            echo "Error: Se requiere nombre del proyecto"
+            echo "Uso: cmx cleanup <proyecto>"
+            exit 1
+        fi
+        "$CLEANUP" "$PROJECT"
+        ;;
+    
+    init)
+        "$CMX_INIT" "cmx-core"
+        ;;
+    
+    help|--help|-h)
+        show_help
+        ;;
+    
+    *)
+        echo "Error: Comando desconocido '$COMMAND'"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac

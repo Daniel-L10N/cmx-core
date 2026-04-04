@@ -10,12 +10,67 @@
 Es un **sistema de orquestación multi-agente** que te permite construir software usando IA de forma estructurada:
 
 - 🔍 **Explora** ideas y requerimientos
+- 🧠 **Cerebro autónomo** - sistema con memoria y selección inteligente de IA
 - 📋 **Propone** soluciones técnicas
 - 📝 **Especifica** requisitos exactos
 - 🎨 **Diseña** la arquitectura
 - ⚒️ **Implementa** en batches controlado
 - ✅ **Verifica** cada paso
 - 📦 **Archiva** el resultado
+
+---
+
+## Dos Modos de Uso
+
+### Modo 1: Pipeline SDD Tradicional
+
+El pipeline original de cmx-core para desarrollo estructurado:
+
+```bash
+cd cmx-core
+
+# 1. Inicializar el workspace
+./run.sh init
+
+# 2. Ejecutar pipeline completo (con HITL)
+./run.sh run mi-feature "crear una app de tareas con React"
+
+# O ejecutar paso a paso:
+./run.sh explore "autenticación JWT"
+./run.sh propose
+./run.sh spec
+./run.sh design
+./run.sh tasks
+./run.sh apply 1
+./run.sh verify 1
+./run.sh archive
+```
+
+### Modo 2: Sistema Autónomo (NUEVO)
+
+El nuevo sistema autónomo con cerebro propio:
+
+```bash
+cd cmx-core
+
+# Inicializar memoria
+./cmx init
+
+# Ver estado
+./cmx status
+
+# Listar IAs disponibles
+./cmx list-ias
+
+# Ejecutar tarea con el cerebro
+./cmx task "crear una API REST" --mode autonomous
+
+# Ver decisiones del cerebro
+./cmx memories cmx-core decision
+
+# Cleanup post-proyecto (síntesis automática)
+./cmx cleanup mi-proyecto
+```
 
 ---
 
@@ -130,6 +185,70 @@ cd cmx-core
 
 ## Arquitectura del Sistema
 
+### Sistema Autónomo (Modo Nuevo)
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    CMX-CORE SISTEMA AUTÓNOMO                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌──────────────┐     ┌──────────────┐     ┌──────────────────┐   │
+│  │   Usuario    │────▶│   brain.sh   │────▶│ ai-selector.sh   │   │
+│  │  (cualquier  │     │   (Cerebro)  │     │ (Selecciona IA) │   │
+│  │    IA)       │     └──────────────┘     └────────┬─────────┘  │
+│  └──────────────┘                                    │            │
+│                                                      ▼            │
+│  ┌──────────────────────────────────────────────────────────────┐ │
+│  │              INYECTOR DE CONTEXTO (3 CAPAS)                  │ │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │ │
+│  │  │  BASE       │→ │  PROYECTO   │→ │  TAREA (DAG)         │ │ │
+│  │  │  prompts/   │  │  CONTEXT.md │  │  pipeline.sh         │ │ │
+│  │  │  base.txt   │  │  AGENT.md   │  │  pasa al agente     │ │ │
+│  │  └─────────────┘  └─────────────┘  └─────────────────────┘ │ │
+│  └──────────────────────────────────────────────────────────────┘ │
+│                                                      │            │
+│  ┌──────────────┐     ┌──────────────┐     ┌──────────────────┐   │
+│  │  Agentes     │◀────│  pipeline.sh │◀────│  agentes/         │   │
+│  │  Existentes  │     │  (DAG exec)  │     │  (explorer, etc) │   │
+│  └──────────────┘     └──────────────┘     └──────────────────┘   │
+│                              │                                    │
+│                              ▼                                    │
+│  ┌──────────────────────────────────────────────────────────────┐ │
+│  │                    CMX-MEMORIES                              │ │
+│  │  ┌─────────────────────┐  ┌─────────────────────────────┐     │ │
+│  │  │  Estado (decisiones)│  │  Síntesis (Lecciones)       │     │ │
+│  │  │  project+agent+phase│  │  type: synthesis            │     │ │
+│  │  │  durante proyecto  │  │  generado por IA            │     │ │
+│  │  └─────────────────────┘  └─────────────────────────────┘     │ │
+│  └──────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Componentes del Sistema Autónomo
+
+| Componente | Archivo | Descripción |
+|-----------|---------|-------------|
+| Cerebro | `brain.sh` | Orquestador central - analiza tareas, selecciona IA, delega |
+| Selector IA | `ai-selector.sh` | Selecciona la mejor IA basada en tipo de tarea |
+| Memoria | `memories.json` | Base de datos de decisiones (JSON backend) |
+| Pre-flight | `check-environment.sh` | Valida API keys antes de ejecutar |
+| CLI | `cmx` | Punto de entrada principal |
+| Cleanup | `cleanup-project.sh` | Síntesis automática post-proyecto |
+
+### IAs Registradas
+
+| IA | Estado | Capabilities | Best For |
+|----|--------|-------------|----------|
+| opencode | available | coding, refactoring, multi-file | implementation, code-generation |
+| gemini | available | analysis, long-context, research | analysis, debugging, research |
+| openrouter | available | flexible, multi-provider, synthesis | synthesis, summary, fallback |
+| ollama | unavailable | local, offline, privacy | offline, privacy-critical |
+
+---
+
+### Pipeline SDD (Modo Tradicional)
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    CMX-CORE PIPELINE                        │
@@ -191,7 +310,7 @@ cd cmx-core
 
 ```
 cmx-core/
-├── agents/              # Scripts de agentes
+├── agents/              # Scripts de agentes SDD
 │   ├── explorer.sh
 │   ├── proposer.sh
 │   └── ...
@@ -202,22 +321,106 @@ cmx-core/
 ├── schemas/             # JSON Schemas de validación
 ├── dag/                 # Definición del DAG
 ├── validators/          # Validadores
+├── config/               # Configuración del Sistema Autónomo
+│   ├── ai-registry.json # Registro de IAs disponibles
+│   ├── autonomy.yaml    # Niveles de autonomía
+│   └── prompts/
+│       └── base.txt     # Capa base de prompts
+├── scripts/             # Scripts del Sistema Autónomo
+│   ├── brain.sh         # Cerebro principal
+│   ├── ai-selector.sh   # Selector de IA
+│   ├── memory-save.sh   # Guardar decisiones
+│   ├── memory-query.sh  # Consultar decisiones
+│   ├── check-environment.sh  # Pre-flight check
+│   ├── cleanup-project.sh    # Síntesis automática
+│   └── cmx-memories-init.sh # Inicializar memoria
+├── brain.sh             # Punto de entrada del cerebro
+├── cmx                  # CLI principal del sistema autónomo
+├── memories.json        # Base de datos de decisiones
 ├── artifacts/           # Artefactos generados
-│   ├── exploration/
-│   ├── proposals/
-│   ├── specs/
-│   ├── designs/
-│   ├── tasks/
-│   ├── implementation/
-│   ├── verification/
-│   └── archive/
-├── run.sh              # Punto de entrada único
-└── README.md
+├── run.sh              # Punto de entrada SDD tradicional
+├── README.md
+└── MANUAL.md
 ```
 
 ---
 
-## Ejemplo: Crear una App
+## Sistema Autónomo - Guía Completa
+
+### Primeros Pasos
+
+```bash
+# 1. Navegar al proyecto
+cd cmx-core
+
+# 2. Inicializar memoria cmx-memories
+./cmx init
+
+# 3. Ver estado del sistema
+./cmx status
+
+# 4. Listar IAs disponibles
+./cmx list-ias
+```
+
+### Comandos del CLI cmx
+
+```bash
+# Ejecutar una tarea con el cerebro
+./cmx task "crear una API REST con autenticación JWT" --mode autonomous
+./cmx task "analizar el código existente" --mode hybrid
+
+# Ver estado del sistema
+./cmx status
+
+# Listar IAs disponibles
+./cmx list-ias
+
+# Verificar entorno (API keys)
+./cmx env-check
+
+# Consultar memorias/decisiones
+./cmx memories cmx-core decision
+./cmx memories cmx-core synthesis
+
+# Cleanup post-proyecto (síntesis automática)
+./cmx cleanup mi-proyecto
+```
+
+### Opciones de tarea
+
+| Opción | Descripción | Ejemplo |
+|--------|-------------|---------|
+| `--task` | Descripción de la tarea | `"crear una API REST"` |
+| `--mode` | Nivel de autonomía | `manual`, `hybrid`, `autonomous` |
+| `--project` | Nombre del proyecto | `cmx-core` |
+| `--context` | Contexto adicional | `"usar TypeScript"` |
+
+### Niveles de Autonomía
+
+| Nivel | Descripción | Aprobaciones |
+|-------|-------------|--------------|
+| `manual` | Cada paso requiere aprobación humana | Todas las fases |
+| `hybrid` | Solo decisiones críticas requieren aprobación | spec, design |
+| `autonomous` | Opera de forma autónoma, reporta al final | Ninguna |
+
+### Variables de Entorno Requeridas
+
+Para que el sistema funcione completamente, configura estas variables:
+
+```bash
+# API Keys (agregar a ~/.bashrc o .env)
+export OPENCOD_API_KEY="tu-api-key"
+export GEMINI_API_KEY="tu-api-key"
+export OPENROUTER_API_KEY="tu-api-key"
+
+# Verificar que están configuradas
+./cmx env-check
+```
+
+---
+
+## Ejemplo: Crear una App (Modo Tradicional)
 
 ```bash
 # 1. Navegar al proyecto
@@ -245,18 +448,50 @@ cd cmx-core
 ### Alias útiles (agregar a ~/.bashrc)
 
 ```bash
+# Modo SDD tradicional
 alias cs='cd ~/cmx-core && ./run.sh'
 alias cs-run='cd ~/cmx-core && ./run.sh run'
 alias cs-status='cd ~/cmx-core && ./run.sh status'
 alias cs-init='cd ~/cmx-core && ./run.sh init'
+
+# Sistema Autónomo
+alias cmx='cd ~/cmx-core && ./cmx'
+alias cmx-task='cd ~/cmx-core && ./cmx task'
+alias cmx-status='cd ~/cmx-core && ./cmx status'
 ```
 
 ### Variables de entorno
 
 ```bash
-# Opcional: Directorio de trabajo custom
+# Directorio de trabajo custom
 export CMX_WORKSPACE=/tu/path/custom
+
+# API Keys para el sistema autónomo
+export OPENCOD_API_KEY="..."
+export GEMINI_API_KEY="..."
+export OPENROUTER_API_KEY="..."
 ```
+
+---
+
+## Estado del Proyecto
+
+### ✅ Completado (23/42 tareas)
+
+- Cerebro principal (`brain.sh`)
+- CLI principal (`cmx`)
+- Registro de IAs (`config/ai-registry.json`)
+- Niveles de autonomía (`config/autonomy.yaml`)
+- Pre-flight check (`check-environment.sh`)
+- cmx-memories (JSON backend)
+- ai-selector
+- Síntesis automática (`cleanup-project.sh`)
+
+### ⏳ Pendiente
+
+- brain-adapter.sh (integrar con pipeline.sh)
+- Tests de integración
+- Documentación avanzada
 
 ---
 
