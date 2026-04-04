@@ -1,7 +1,6 @@
 # CMX-CORE - Sistema de Control Modular MX
 
-> **Pipeline de desarrollo con Agentes de IA**  
-> Construye aplicaciones completas usando agentes especializados con supervisión humana.
+> **v2.1.0** | Pipeline de desarrollo con Agentes de IA | Construye aplicaciones completas usando agentes especializados con supervisión humana.
 
 ---
 
@@ -230,20 +229,21 @@ cd cmx-core
 | Componente | Archivo | Descripción |
 |-----------|---------|-------------|
 | Cerebro | `brain.sh` | Orquestador central - analiza tareas, selecciona IA, delega |
+| Adapter | `brain-adapter.sh` | Conecta brain con pipeline SDD - traduce decisiones en ejecución |
 | Selector IA | `ai-selector.sh` | Selecciona la mejor IA basada en tipo de tarea |
-| Memoria | `memories.json` | Base de datos de decisiones (JSON backend) |
+| Memoria | `memories.db` | Base de datos de decisiones (SQLite + FTS5 backend) |
 | Pre-flight | `check-environment.sh` | Valida API keys antes de ejecutar |
 | CLI | `cmx` | Punto de entrada principal |
 | Cleanup | `cleanup-project.sh` | Síntesis automática post-proyecto |
 
-### IAs Registradas
+### IAs Registradas (v2.1.0)
 
-| IA | Estado | Capabilities | Best For |
-|----|--------|-------------|----------|
-| opencode | available | coding, refactoring, multi-file | implementation, code-generation |
-| gemini | available | analysis, long-context, research | analysis, debugging, research |
-| openrouter | available | flexible, multi-provider, synthesis | synthesis, summary, fallback |
-| ollama | unavailable | local, offline, privacy | offline, privacy-critical |
+| IA | Estado | Cost Level | Modelos | Best For |
+|----|--------|------------|----------|-----------|
+| opencode | ✅ available | 2 (gratis) | big-pickle, gpt-5-nano, etc. | implementation, coding |
+| gemini | ✅ available | 1 (gratis) | gemini-2.0-flash | trivial tasks, analysis |
+| openrouter | ✅ available | 1 (gratis) | deepseek, llama3.2, gemma | synthesis, fallback |
+| ollama | ⚠️ offline | 5 (local) | llama3.2 | offline, privacy |
 
 ---
 
@@ -317,6 +317,7 @@ cmx-core/
 ├── orchestrator/        # Motor de orquestación
 │   ├── pipeline.sh
 │   ├── monitor.sh
+│   ├── brain-adapter.sh     # ← NUEVO: conecta brain → pipeline
 │   └── state.json
 ├── schemas/             # JSON Schemas de validación
 ├── dag/                 # Definición del DAG
@@ -329,15 +330,20 @@ cmx-core/
 ├── scripts/             # Scripts del Sistema Autónomo
 │   ├── brain.sh         # Cerebro principal
 │   ├── ai-selector.sh   # Selector de IA
-│   ├── memory-save.sh   # Guardar decisiones
-│   ├── memory-query.sh  # Consultar decisiones
+│   ├── memory-save.sh   # Guardar decisiones (SQLite)
+│   ├── memory-query.sh  # Consultar decisiones (FTS5)
+│   ├── cmx-memories-init.sh  # Inicializar DB SQLite
+│   ├── migrate-to-sqlite.sh  # Migración JSON→SQLite
+│   ├── backup-memories.sh    # Backup DB
+│   ├── restore-memories.sh   # Restore DB
 │   ├── check-environment.sh  # Pre-flight check
-│   ├── cleanup-project.sh    # Síntesis automática
-│   └── cmx-memories-init.sh # Inicializar memoria
+│   └── cleanup-project.sh    # Síntesis automática
 ├── brain.sh             # Punto de entrada del cerebro
 ├── cmx                  # CLI principal del sistema autónomo
-├── memories.json        # Base de datos de decisiones
+├── memories.db          # ← NUEVO: Base SQLite + FTS5
+├── memories.json        # Original (backup)
 ├── artifacts/           # Artefactos generados
+├── backups/             # ← NUEVO: Backups de DB
 ├── run.sh              # Punto de entrada SDD tradicional
 ├── README.md
 └── MANUAL.md
@@ -476,22 +482,30 @@ export OPENROUTER_API_KEY="..."
 
 ## Estado del Proyecto
 
-### ✅ Completado (23/42 tareas)
+### ✅ v2.1.0 Completado
 
 - Cerebro principal (`brain.sh`)
 - CLI principal (`cmx`)
-- Registro de IAs (`config/ai-registry.json`)
+- Registro de IAs (`config/ai-registry.json`) - v3.0
 - Niveles de autonomía (`config/autonomy.yaml`)
 - Pre-flight check (`check-environment.sh`)
-- cmx-memories (JSON backend)
-- ai-selector
+- cmx-memories (**SQLite + FTS5 backend**)
+- ai-selector con cost-based selection
+- ai-executor con retry/fallback automático
 - Síntesis automática (`cleanup-project.sh`)
+- brain-adapter.sh (conecta brain → pipeline)
+- Scripts de backup/restore
+- Setup de AI providers
 
-### ⏳ Pendiente
+### Características v2.1.0
 
-- brain-adapter.sh (integrar con pipeline.sh)
-- Tests de integración
-- Documentación avanzada
+| Feature | Descripción |
+|---------|-------------|
+| **SQLite Backend** | memories.db con FTS5 búsqueda full-text |
+| **Cost-Based Selection** | Tareas triviales → gemini (cost 1) |
+| **Retry Logic** | Fallback automático si IA falla |
+| **3 AI Providers** | OpenCode, Gemini CLI, OpenRouter |
+| **Backup/Restore** | Compresión + integrity check |
 
 ---
 

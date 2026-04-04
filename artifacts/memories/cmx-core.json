@@ -1,7 +1,8 @@
 {
   "project": "cmx-core",
-  "initialized_at": "2026-04-03T20:00:14-06:00",
-  "memory_types": ["decision", "synthesis", "task", "note"],
-  "schema_version": "1.0.0",
-  "backend": "json"
+  "initialized_at": "2026-04-03T20:30:47-06:00",
+  "memory_types": ["decision", "synthesis", "task", "note", "bugfix", "architecture"],
+  "schema_version": "2.0.0",
+  "backend": "sqlite",
+  "db_path": "/home/cmx/cmx-core/memories.db"
 }

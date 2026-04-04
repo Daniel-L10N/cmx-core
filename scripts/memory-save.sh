@@ -1,12 +1,12 @@
 #!/bin/bash
-# Memory Save - Guarda decisiones en cmx-memories (JSON backend)
+# Memory Save - Guarda decisiones en cmx-memories (SQLite backend)
 # Uso: memory-save.sh <type> <title> <content> [project] [agent] [task_id] [phase]
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-MEMORIES_DB="$PROJECT_ROOT/memories.json"
+MEMORIES_DB="$PROJECT_ROOT/memories.db"
 
 # Colores
 GREEN='\033[0;32m'
@@ -32,51 +32,60 @@ if [ -z "$CONTENT" ]; then
     exit 1
 fi
 
-# Generar UUID para task_id si no se proporciona
-if [ -z "$TASK_ID" ]; then
-    TASK_ID="task-$(date +%s)-$RANDOM"
-fi
-
-# Crear archivo si no existe
+# Verificar que la base de datos existe
 if [ ! -f "$MEMORIES_DB" ]; then
-    echo '{"version": "1.0.0", "type": "memories", "memories": []}' > "$MEMORIES_DB"
+    log_error "Base de datos no encontrada: $MEMORIES_DB"
+    log_error "Ejecuta primero: cmx-memories-init.sh"
+    exit 1
 fi
 
-# Generar ID único
-MEMORY_ID=$(date +%s)$RANDOM
+# Generar task_id si no se proporciona
+if [ -z "$TASK_ID" ]; then
+    TASK_ID="task-$(date +%s)"
+fi
 
-# Crear nuevo registro
-TIMESTAMP=$(date -Iseconds)
-NEW_ENTRY=$(cat <<EOF
-{
-  "id": $MEMORY_ID,
-  "type": "$TYPE",
-  "title": "$TITLE",
-  "content": "$CONTENT",
-  "project": "$PROJECT",
-  "agent": "$AGENT",
-  "task_id": "$TASK_ID",
-  "phase": "$PHASE",
-  "created_at": "$TIMESTAMP",
-  "updated_at": "$TIMESTAMP"
-}
-EOF
-)
+# Escapar contenido para SQL (prevenir inyección y errores)
+# Usar SQLite con parameterized queries a través de bash
+ESCAPED_TITLE=$(echo "$TITLE" | sed "s/'/''/g")
+ESCAPED_CONTENT=$(echo "$CONTENT" | sed "s/'/''/g")
+ESCAPED_PROJECT=$(echo "$PROJECT" | sed "s/'/''/g")
+ESCAPED_AGENT=$(echo "$AGENT" | sed "s/'/''/g")
+ESCAPED_TASK_ID=$(echo "$TASK_ID" | sed "s/'/''/g")
+ESCAPED_PHASE=$(echo "$PHASE" | sed "s/'/''/g")
 
-# Agregar al JSON usando jq
-TEMP_FILE=$(mktemp)
-jq --argjson entry "$NEW_ENTRY" '.memories += [$entry]' "$MEMORIES_DB" > "$TEMP_FILE" && mv "$TEMP_FILE" "$MEMORIES_DB"
+# Insertar en la base de datos
+RESULT=$(sqlite3 "$MEMORIES_DB" "
+INSERT INTO memories (type, title, content, project, agent, task_id, phase, created_at, updated_at)
+VALUES (
+    '$TYPE',
+    '$ESCAPED_TITLE',
+    '$ESCAPED_CONTENT',
+    '$ESCAPED_PROJECT',
+    '$ESCAPED_AGENT',
+    '$ESCAPED_TASK_ID',
+    '$ESCAPED_PHASE',
+    datetime('now'),
+    datetime('now')
+);
+SELECT last_insert_rowid();
+")
 
-log_ok "Memoria guardada: ID=$MEMORY_ID, type=$TYPE, project=$PROJECT"
-
-# Output JSON para consumo programático
-echo "{"
-echo "  \"status\": \"saved\","
-echo "  \"id\": $MEMORY_ID,"
-echo "  \"type\": \"$TYPE\","
-echo "  \"project\": \"$PROJECT\","
-echo "  \"agent\": \"$AGENT\","
-echo "  \"task_id\": \"$TASK_ID\","
-echo "  \"phase\": \"$PHASE\","
-echo "  \"timestamp\": \"$TIMESTAMP\""
-echo "}"
+if [ $? -eq 0 ]; then
+    TIMESTAMP=$(date -Iseconds)
+    log_ok "Memoria guardada: ID=$RESULT, type=$TYPE, project=$PROJECT"
+    
+    # Output JSON para consumo programático
+    echo "{"
+    echo "  \"status\": \"saved\","
+    echo "  \"id\": $RESULT,"
+    echo "  \"type\": \"$TYPE\","
+    echo "  \"project\": \"$PROJECT\","
+    echo "  \"agent\": \"$AGENT\","
+    echo "  \"task_id\": \"$TASK_ID\","
+    echo "  \"phase\": \"$PHASE\","
+    echo "  \"timestamp\": \"$TIMESTAMP\""
+    echo "}"
+else
+    log_error "Error al guardar la memoria"
+    exit 1
+fi

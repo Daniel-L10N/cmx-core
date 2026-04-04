@@ -13,8 +13,9 @@ CHECK_ENV="$PROJECT_ROOT/scripts/check-environment.sh"
 AI_SELECTOR="$PROJECT_ROOT/scripts/ai-selector.sh"
 MEMORY_SAVE="$PROJECT_ROOT/scripts/memory-save.sh"
 MEMORY_QUERY="$PROJECT_ROOT/scripts/memory-query.sh"
-CLEANUP="$PROJECT_ROOT/scripts/cleanup-project.sh"
-CMX_INIT="$PROJECT_ROOT/scripts/cmx-memories-init.sh"
+MEMORY_INIT="$PROJECT_ROOT/scripts/cmx-memories-init.sh"
+BACKUP_SCRIPT="$PROJECT_ROOT/scripts/backup-memories.sh"
+RESTORE_SCRIPT="$PROJECT_ROOT/scripts/restore-memories.sh"
 
 # Colores
 RED='\033[0;31m'
@@ -27,8 +28,8 @@ NC='\033[0m'
 # Help
 show_help() {
     cat << EOF
-CMX - Sistema Autónomo cmx-core
-================================
+CMX - Sistema Autónomo cmx-core v2.0
+=====================================
 
 Uso: cmx <comando> [opciones]
 
@@ -37,9 +38,12 @@ COMANDOS:
   status                Ver estado del sistema
   list-ias              Listar IAs disponibles
   env-check             Verificar entorno
-  memories [filtros]    Consultar memorias
+  memories [filtros]    Consultar memorias (SQLite)
+  search <query>        Buscar en memorias (FTS5)
   cleanup <proyecto>    Cleanup post-proyecto
-  init                  Inicializar cmx-memories
+  init                  Inicializar cmx-memories (SQLite)
+  backup                Crear backup de la base de datos
+  restore <archivo>     Restaurar desde backup
   help                  Mostrar esta ayuda
 
 OPCIONES:
@@ -52,6 +56,8 @@ EJEMPLOS:
   cmx task "analizar el código" --mode autonomous
   cmx list-ias
   cmx memories cmx-core decision
+  cmx search "test" cmx-core
+  cmx backup
   cmx cleanup mi-proyecto
 
 EOF
@@ -106,16 +112,18 @@ case "$COMMAND" in
         echo "Timestamp: $(date -Iseconds)"
         echo ""
         
-        # Verificar memoria
-        if [ -f "$PROJECT_ROOT/memories.json" ]; then
-            MEM_COUNT=$(jq '.memories | length' "$PROJECT_ROOT/memories.json" 2>/dev/null || echo "0")
-            DECISIONS=$(jq '[.memories[] | select(.type == "decision")] | length' "$PROJECT_ROOT/memories.json" 2>/dev/null || echo "0")
-            SYNTHESIS=$(jq '[.memories[] | select(.type == "synthesis")] | length' "$PROJECT_ROOT/memories.json" 2>/dev/null || echo "0")
+        # Verificar memoria (SQLite)
+        if [ -f "$PROJECT_ROOT/memories.db" ]; then
+            MEM_COUNT=$(sqlite3 "$PROJECT_ROOT/memories.db" "SELECT COUNT(*) FROM memories;" 2>/dev/null || echo "0")
+            DECISIONS=$(sqlite3 "$PROJECT_ROOT/memories.db" "SELECT COUNT(*) FROM memories WHERE type='decision';" 2>/dev/null || echo "0")
+            SYNTHESIS=$(sqlite3 "$PROJECT_ROOT/memories.db" "SELECT COUNT(*) FROM memories WHERE type='synthesis';" 2>/dev/null || echo "0")
+            FTS_INDEX=$(sqlite3 "$PROJECT_ROOT/memories.db" "SELECT COUNT(*) FROM memories_fts;" 2>/dev/null || echo "0")
             
-            echo "Memorias:"
+            echo "Memorias (SQLite + FTS5):"
             echo "  Total: $MEM_COUNT"
             echo "  Decisiones: $DECISIONS"
             echo "  Síntesis: $SYNTHESIS"
+            echo "  Índice FTS5: $FTS_INDEX"
         else
             echo "Memoria: No inicializada (ejecuta: cmx init)"
         fi
@@ -123,8 +131,12 @@ case "$COMMAND" in
         
         # Verificar entorno
         echo "Entorno:"
-        echo "  IAs disponibles:"
-        "$CHECK_ENV" 2>/dev/null | jq -r '.available[]' 2>/dev/null || echo "    [check-env error]"
+        CHECK_OUTPUT=$("$CHECK_ENV" 2>/dev/null)
+        # Extraer solo la parte JSON del output
+        JSON_OUTPUT=$(echo "$CHECK_OUTPUT" | grep -A 100 "^{" | head -50)
+        echo "$JSON_OUTPUT" | jq -r '.providers[] | "  \(.status): \(.models)"' 2>/dev/null || echo "  (error al obtener info)"
+        echo ""
+        echo "  Proveedores activos: $(echo "$JSON_OUTPUT" | jq -r '.available | join(", ")')" 2>/dev/null
         ;;
     
     list-ias)
@@ -166,7 +178,35 @@ case "$COMMAND" in
         ;;
     
     init)
-        "$CMX_INIT" "cmx-core"
+        "$MEMORY_INIT" "cmx-core"
+        ;;
+    
+    backup)
+        "$BACKUP_SCRIPT"
+        ;;
+    
+    restore)
+        BACKUP_FILE="$1"
+        if [ -z "$BACKUP_FILE" ]; then
+            echo "Error: Se requiere archivo de backup"
+            echo "Uso: cmx restore <archivo-backup>"
+            echo "Backups disponibles:"
+            ls -1t "$PROJECT_ROOT/backups"/memories_*.db.gz 2>/dev/null | head -5 || echo "  No hay backups"
+            exit 1
+        fi
+        "$RESTORE_SCRIPT" "$BACKUP_FILE"
+        ;;
+    
+    search)
+        QUERY="$1"
+        if [ -z "$QUERY" ]; then
+            echo "Error: Se requiere query de búsqueda"
+            echo "Uso: cmx search <query> [proyecto] [tipo]"
+            exit 1
+        fi
+        PROJECT="${2:-cmx-core}"
+        TYPE="${3:-}"
+        "$MEMORY_QUERY" --search "$QUERY" --project "$PROJECT" --type "$TYPE"
         ;;
     
     help|--help|-h)

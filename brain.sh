@@ -7,10 +7,16 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR" && pwd)"
 
+# Cargar variables de entorno
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    source "$PROJECT_ROOT/.env"
+fi
+
 # Scripts
 CHECK_ENV="$PROJECT_ROOT/scripts/check-environment.sh"
 AI_SELECTOR="$PROJECT_ROOT/scripts/ai-selector.sh"
 MEMORY_SAVE="$PROJECT_ROOT/scripts/memory-save.sh"
+BRAIN_ADAPTER="$PROJECT_ROOT/orchestrator/brain-adapter.sh"
 
 # Configs
 REGISTRY_FILE="$PROJECT_ROOT/config/ai-registry.json"
@@ -178,10 +184,22 @@ log_ok "Contexto preparado"
 # 6. Ejecutar la tarea con la IA seleccionada
 log "Ejecutando tarea con $SELECTED_IA..."
 
+# Determinar si la tarea requiere pipeline SDD
+# Si es "spec-driven" o el modo es autonomous, usar brain-adapter
+USE_PIPELINE=false
+INTENT="auto"
+
 case "$SELECTED_IA" in
     opencode)
-        # Usar opencode para ejecutar la tarea
-        RESPONSE=$(opencode run "$TASK" 2>&1) || true
+        # opencode puede ejecutar directamente O via pipeline
+        if [ "$MODE" = "autonomous" ] || echo "$TASK" | grep -qiE "(implementar|crear feature|escribir spec|design|build)"; then
+            USE_PIPELINE=true
+            INTENT="auto"
+            log "Tarea detectada como SDD - usando brain-adapter"
+        else
+            # Usar opencode directamente
+            RESPONSE=$(opencode run "$TASK" 2>&1) || true
+        fi
         ;;
     gemini)
         # Usar gemini CLI
@@ -195,6 +213,24 @@ case "$SELECTED_IA" in
         RESPONSE="IA $SELECTED_IA no implementada aún"
         ;;
 esac
+
+# Si requiere pipeline, ejecutar brain-adapter
+if [ "$USE_PIPELINE" = true ]; then
+    CHANGE_NAME=$(echo "$TASK" | sed 's/ /-/g' | tr -cd '[:alnum:]-_' | cut -c1-50)
+    
+    log "Dispatching a pipeline SDD: $CHANGE_NAME"
+    ADAPTER_RESULT=$("$BRAIN_ADAPTER" \
+        --task-id "$TASK_ID" \
+        --intent "$INTENT" \
+        --change "$CHANGE_NAME" \
+        --mode "$MODE" 2>&1) || true
+    
+    log "Resultado del pipeline:"
+    echo "$ADAPTER_RESULT"
+    
+    # Actualizar response con resultado del pipeline
+    RESPONSE="Pipeline SDD ejecutado: $ADAPTER_RESULT"
+fi
 
 # 7. Guardar resultado
 "$MEMORY_SAVE" "decision" "task-execution" \

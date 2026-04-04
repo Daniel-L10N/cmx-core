@@ -1,53 +1,120 @@
 {
-  "version": "1.0.0",
+  "version": "3.0.0",
   "updated": "2026-04-03",
   "ias": {
     "opencode": {
       "type": "cli",
       "command": "opencode",
-      "capabilities": ["coding", "refactoring", "multi-file"],
-      "context_limit": "medium",
+      "models": [
+        "opencode/big-pickle",
+        "opencode/gpt-5-nano",
+        "opencode/minimax-m2.5-free",
+        "opencode/nemotron-3-super-free",
+        "opencode/qwen3.6-plus-free"
+      ],
+      "default_model": "opencode/big-pickle",
+      "cost_level": 2,
+      "cost_description": "Gratis (incluido con OpenCode)",
+      "speed": "fast",
+      "capabilities": ["coding", "refactoring", "multi-file", "reasoning"],
+      "context_limit": "200K tokens",
       "status": "available",
       "priority": 10,
-      "requires_env": ["OPENCOD_API_KEY"],
-      "best_for": ["implementation", "code-generation", "refactoring"]
+      "requires_env": [],
+      "best_for": ["implementation", "code-generation", "refactoring", "debugging"]
     },
     "gemini": {
-      "type": "cli",
+      "type": "cli-direct",
       "command": "gemini",
-      "capabilities": ["analysis", "long-context", "research", "reasoning"],
-      "context_limit": "large",
+      "models": ["gemini-2.0-flash", "gemini-2.0-pro"],
+      "default_model": "gemini-2.0-flash",
+      "cost_level": 1,
+      "cost_description": "Gratis (CLI directo)",
+      "speed": "fast",
+      "capabilities": ["analysis", "long-context", "research", "reasoning", "multimodal"],
+      "context_limit": "1M tokens",
       "status": "available",
       "priority": 8,
-      "requires_env": ["GEMINI_API_KEY"],
-      "best_for": ["analysis", "debugging", "research", "complex-reasoning"]
+      "requires_env": [],
+      "best_for": ["analysis", "debugging", "research", "complex-reasoning", "files-review", "trivial-tasks"],
+      "note": "Usa CLI directamente - no requiere API key - ideal para tareas triviales"
     },
     "openrouter": {
       "type": "api",
-      "endpoint": "http://localhost:8080",
+      "endpoint": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "models": {
+        "free": [
+          "deepseek/deepseek-chat",
+          "meta-llama/llama-3.2-1b-instruct",
+          "google/gemma-2-2b-it",
+          "mistralai/mistral-7b-instruct",
+          "qwen/qwen2.5-7b-instruct"
+        ],
+        "paid": [
+          "openai/gpt-4o",
+          "anthropic/claude-3.5-sonnet",
+          "google/gemini-pro-1.5"
+        ]
+      },
+      "default_model": "deepseek/deepseek-chat",
+      "cost_level": 1,
+      "cost_description": "Gratis (créditos gratuitos mensuales)",
+      "speed": "medium",
       "capabilities": ["flexible", "multi-provider", "synthesis", "routing"],
-      "context_limit": "large",
+      "context_limit": "varies by model",
       "status": "available",
       "priority": 5,
       "requires_env": ["OPENROUTER_API_KEY"],
-      "best_for": ["synthesis", "summary", "complex-analysis", "fallback"]
+      "best_for": ["synthesis", "summary", "complex-analysis", "fallback", "varied-tasks"]
     },
     "ollama": {
       "type": "cli",
       "command": "ollama",
-      "capabilities": ["local", "offline", "privacy"],
-      "context_limit": "small",
+      "models": ["llama3.2", "mistral", "codellama", "qwen2.5"],
+      "default_model": "llama3.2",
+      "cost_level": 5,
+      "cost_description": "Gratis (local/offline)",
+      "speed": "fast (local)",
+      "capabilities": ["local", "offline", "privacy", "fast"],
+      "context_limit": "8K-32K tokens",
       "status": "unavailable",
+      "status_reason": "No instalado - ejecutar: ollama pull llama3.2",
       "priority": 3,
       "requires_env": [],
-      "best_for": ["offline", "privacy-critical", "quick-local"]
+      "best_for": ["offline", "privacy-critical", "quick-local", "no-internet"],
+      "activation": "Para activar: instalar Ollama y ejecutar 'ollama pull llama3.2'"
     }
   },
   "selection_rules": {
-    "coding": ["opencode"],
+    "trivial": ["gemini", "openrouter", "opencode"],
+    "coding": ["opencode", "gemini"],
     "analysis": ["gemini", "openrouter"],
-    "research": ["gemini"],
-    "synthesis": ["openrouter"],
-    "general": ["opencode", "gemini"]
+    "research": ["gemini", "openrouter"],
+    "synthesis": ["openrouter", "gemini"],
+    "refactoring": ["opencode"],
+    "debugging": ["gemini", "opencode"],
+    "general": ["opencode", "gemini", "openrouter"]
+  },
+  "cost_based_selection": {
+    "enabled": true,
+    "trivial_task_keywords": ["comentario", "comenta", "traduce", "traducir", "resume", "resumir", "simple", "quick", "fast", "pon", "cambia solo", "change only", "add comment", "fix typo"],
+    "cost_levels": {
+      "1": ["gemini", "openrouter"],
+      "2": ["opencode"],
+      "3": ["openrouter:paid"],
+      "4": ["openai", "anthropic"],
+      "5": ["ollama"]
+    }
+  },
+  "retry_config": {
+    "max_retries": 2,
+    "retry_delay_seconds": 2,
+    "fallback_chain": {
+      "opencode": ["gemini", "openrouter"],
+      "gemini": ["opencode", "openrouter"],
+      "openrouter": ["gemini", "opencode"],
+      "ollama": []
+    }
   }
 }

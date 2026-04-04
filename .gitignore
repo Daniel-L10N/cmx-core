@@ -1,0 +1,40 @@
+# CMX-CORE .gitignore
+
+# Base de datos
+memories.db
+backups/
+
+# Archivos de entorno (NO COMMITEAR)
+.env
+.env.local
+.env.*
+
+# Logs y temporales
+*.log
+orchestrator/logs/*.log
+artifacts/context-*.txt
+artifacts/agent-comm/*.json
+
+# Estado
+orchestrator/state.json
+orchestrator/agent_state.json
+
+# Node/Dependencies
+node_modules/
+*.pyc
+__pycache__/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Builds
+dist/
+build/
+.next/

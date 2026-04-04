@@ -1,0 +1,29 @@
+# CMX-CORE Version
+2.1.0
+---
+Fecha: 2026-04-03
+Fecha: 2026-04-03
+
+## Cambios en v2.1.0
+
+### Nuevas Features
+- SQLite + FTS5 backend para cmx-memories
+- brain-adapter.sh - conecta brain con pipeline SDD
+- AI providers configurados: OpenCode, Gemini CLI, OpenRouter
+- Coste-based AI selection (trivial tasks → gemini)
+- Retry logic con fallback automático
+- Scripts de backup/restore
+
+### Breaking Changes
+- Backend migrado de JSON a SQLite
+- ai-selector.sh ahora detecta tareas triviales
+
+### Archivos Nuevos
+- memories.db (SQLite)
+- brain-adapter.sh
+- ai-executor.sh
+- backup-memories.sh
+- restore-memories.sh
+- migrate-to-sqlite.sh
+- setup-ai-providers.sh
+- test-ai-providers.sh
